@@ -1,0 +1,7 @@
+{
+  "provider": "tushare",
+  "token_env": "TUSHARE_TOKEN",
+  "default_days": 180,
+  "default_percentile_window": 120,
+  "notes": "Do not put a real token in this file. Set TUSHARE_TOKEN in your local shell."
+}
