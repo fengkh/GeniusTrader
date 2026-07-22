@@ -1,0 +1,81 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+secrets/
+credentials/
+local-credentials/
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.token
+
+# User data, imports, exports, and local datasets
+data/imports/
+data/exports/
+data/private/
+user-data/
+uploads/
+downloads/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.duckdb
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build artifacts
+dist/
+build/
+.next/
+out/
+coverage/
+htmlcov/
+.turbo/
+.cache/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+*.rej
