@@ -87,6 +87,23 @@ spikes/free-data-feasibility/*.cookie
 spikes/free-data-feasibility/.env
 spikes/free-data-feasibility/.env.*
 
+# Market review and valuation feasibility spike local artifacts
+.venv-market-review-valuation/
+spikes/market-review-valuation/output/
+spikes/market-review-valuation/raw/
+spikes/market-review-valuation/cache/
+spikes/market-review-valuation/logs/
+spikes/market-review-valuation/temp/
+spikes/market-review-valuation/tmp/
+spikes/market-review-valuation/cookies/
+spikes/market-review-valuation/*.local.json
+spikes/market-review-valuation/*.token
+spikes/market-review-valuation/*.cookie
+spikes/market-review-valuation/*.key
+spikes/market-review-valuation/*.secret
+spikes/market-review-valuation/.env
+spikes/market-review-valuation/.env.*
+
 # IDE and editor
 .idea/
 .vscode/
