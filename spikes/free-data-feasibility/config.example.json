@@ -1,0 +1,13 @@
+{
+  "providers": ["akshare", "efinance", "baostock"],
+  "symbols": ["600519", "000001", "300750", "688981"],
+  "days": 220,
+  "percentile_window": 120,
+  "request_interval": 1.0,
+  "stability_runs": 3,
+  "skip_minute": false,
+  "skip_boards": false,
+  "skip_announcements": false,
+  "output_dir": "output",
+  "save_samples": false
+}

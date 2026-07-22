@@ -1,0 +1,6 @@
+akshare
+efinance
+baostock
+pandas
+numpy
+pytest

@@ -40,3 +40,8 @@
 - Spike 目录为 `spikes/data-feasibility/`，输出目录 `spikes/data-feasibility/output/` 必须被 Git 忽略。
 - 验证完成前，`OQ-01` 首个行情数据供应商选择和 `OQ-02` 公告资讯接入方案仍保持开放。
 - 如果 Tushare 对分时、申万行业指数、公告、概念题材或新闻存在权限缺口，应在能力报告中记录为权限或能力缺口，不得由 AI 或 Mock 数据补造。
+- 2026-07-22 起，AKShare、efinance 和 BaoStock 作为免费候选 Provider 组合进入独立 Spike 验证。
+- 免费数据源 Spike 目录为 `spikes/free-data-feasibility/`，输出目录 `spikes/free-data-feasibility/output/` 必须被 Git 忽略。
+- 本次免费源验证只用于评估个人 MVP 可行性、跨 Provider 字段/单位一致性、稳定性和降级路线，不代表 AKShare、efinance 或 BaoStock 已被选为第一版正式供应商。
+- 免费源验证不得覆盖或取代既有 Tushare Spike 结论；Tushare 仍保留为候选 Provider，是否采用需等待能力报告和产品负责人确认。
+- 免费源中无法确认授权、公告、分时、北交所覆盖、板块反查或单位口径时，应保留为数据风险或开放问题，不得由 AI 或 Mock 数据补造。

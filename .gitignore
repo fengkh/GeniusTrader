@@ -36,6 +36,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 .venv-data-spike/
+.venv-free-data-spike/
 venv/
 env/
 
@@ -71,6 +72,20 @@ spikes/data-feasibility/*.local.json
 spikes/data-feasibility/*.token
 spikes/data-feasibility/.env
 spikes/data-feasibility/.env.*
+
+# Free data provider feasibility spike local artifacts
+spikes/free-data-feasibility/output/
+spikes/free-data-feasibility/raw/
+spikes/free-data-feasibility/cache/
+spikes/free-data-feasibility/logs/
+spikes/free-data-feasibility/temp/
+spikes/free-data-feasibility/tmp/
+spikes/free-data-feasibility/cookies/
+spikes/free-data-feasibility/*.local.json
+spikes/free-data-feasibility/*.token
+spikes/free-data-feasibility/*.cookie
+spikes/free-data-feasibility/.env
+spikes/free-data-feasibility/.env.*
 
 # IDE and editor
 .idea/
