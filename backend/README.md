@@ -179,3 +179,61 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 - 完整 pytest：`30 passed, 0 failed, 0 skipped`。
 - Windows 本地启动：继续使用 `.\.venv-backend\Scripts\python.exe -m app.cli.run_dev`。
 - 当前仍未实现：真实行情、公告资讯、AI Gateway、估值、复盘生成、通知编排、微信、Docker 和前端真实 API 接入。
+## Phase 2: Information Intake And AI Analysis
+
+This backend stage adds:
+
+- encrypted per-user OpenAI-compatible AI Provider configuration;
+- controlled single-URL public content fetching with SSRF-oriented validation, redirect limits, content-type limits, timeout limits, and max-byte limits;
+- manual information intake and URL information intake;
+- content versions, fetch attempts, AI tasks, AI task attempts, structured analysis versions, stock relations, entity mentions, and verification items;
+- strict structured AI analysis validation with one repair attempt;
+- tests that mock all AI calls and do not contact real AI services.
+
+Runtime configuration additions:
+
+- `APP_ENCRYPTION_KEYS`: comma-separated Fernet keys. The first key encrypts new secrets; all keys decrypt existing secrets.
+- `AI_REQUEST_TIMEOUT_SECONDS`, `AI_MAX_INPUT_CHARS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_RETRIES`.
+- `CONTENT_FETCH_TIMEOUT_SECONDS`, `CONTENT_FETCH_MAX_BYTES`, `CONTENT_FETCH_MAX_REDIRECTS`, `CONTENT_ALLOWED_TYPES`.
+- `ALLOW_PRIVATE_AI_BASE_URL`: development-only escape hatch for local AI-compatible endpoints.
+- `INFORMATION_MAX_MANUAL_TEXT_CHARS`.
+
+Generate a local Fernet key with:
+
+```powershell
+.\.venv-backend\Scripts\python.exe -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Store local secrets outside Git, for example in `.local/app.env`.
+
+Start the local development server on Windows with the project helper so psycopg uses a compatible asyncio selector loop:
+
+```powershell
+.\.venv-backend\Scripts\python.exe -m app.cli.run_dev --no-reload --host 127.0.0.1 --port 8000
+```
+
+Manual API smoke examples use placeholders only:
+
+```powershell
+# 1. Login with a locally created test account and keep the session cookie.
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/auth/login -ContentType "application/json" -Body '{"username":"TEST_USERNAME","password":"TEST_PASSWORD"}'
+
+# 2. Create an AI Provider. Do not paste real secrets into shared logs.
+Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/ai/providers -ContentType "application/json" -Body '{"provider_name":"Local compatible model","base_url":"https://AI_BASE_URL_PLACEHOLDER/v1","model_name":"MODEL_NAME_PLACEHOLDER","api_key":"API_KEY_PLACEHOLDER","enabled":true}'
+
+# 3. Submit manual information text.
+Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/manual -ContentType "application/json" -Body '{"title":"示例信息","text":"这是一段用户手动补充的公开信息摘要。","source_type":"user_note"}'
+
+# 4. Submit a public URL for controlled fetch.
+Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/url -ContentType "application/json" -Body '{"url":"https://example.com/article","source_type":"news","fetch_now":true}'
+
+# 5. Analyze an information item after replacing ITEM_ID_PLACEHOLDER.
+Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/ITEM_ID_PLACEHOLDER/analyze -ContentType "application/json" -Body '{"force":false}'
+
+# 6. Confirm or reject an AI suggested stock relation after replacing IDs.
+Invoke-RestMethod -Method Patch -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/ITEM_ID_PLACEHOLDER/stock-relations/RELATION_ID_PLACEHOLDER -ContentType "application/json" -Body '{"relation_status":"confirmed"}'
+
+# 7. View information detail.
+Invoke-RestMethod -Method Get -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/ITEM_ID_PLACEHOLDER
+```

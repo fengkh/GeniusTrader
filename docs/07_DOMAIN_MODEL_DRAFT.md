@@ -121,3 +121,20 @@
 本阶段只实现上述基础实体和 API，不代表行情、公告资讯、AI 配置、复盘、估值、通知或微信实体已经进入正式后端实现。未来模块接入时必须继续复用用户数据隔离、来源追踪、程序计算与 AI 分离、审计脱敏和开放问题管理规则。
 
 数据库 Session 认证已进入后端基线：浏览器只保存 HttpOnly Cookie 中的随机不透明 Token，数据库只保存 Token 哈希；退出、过期、用户禁用和修改密码后的其他会话吊销均由后端校验。该设计不使用 localStorage 保存认证凭证。
+## 后端第二阶段领域模型补充
+
+新增领域实体：
+
+- `AIProviderConfig`：用户级 AI Provider 配置，保存 provider 名称、OpenAI Compatible Base URL、模型名称、启用状态、测试状态和加密后的 API Key。同一用户最多一个启用配置。
+- `AITask`：AI 任务主记录，覆盖 Provider 测试和信息结构化分析，保存任务类型、目标对象、Provider、状态、Prompt 版本、Schema 版本和输入 hash。
+- `AITaskAttempt`：AI 单次调用尝试，保存尝试次数、状态、HTTP 状态、耗时、Token、错误码和脱敏元数据。
+- `InformationItem`：用户级信息条目，区分 `manual_text` 与 `public_url`，保存来源类型、标题、用户备注、重要/已读/归档和状态。
+- `InformationSource`：信息来源记录，保存原始 URL、规范化 URL、URL hash、来源名称、发布时间、抓取状态、HTTP 状态、内容类型和抓取时间。
+- `InformationContent`：信息正文版本，保存内容版本、来源、标题、正文、hash、字符数、抽取方法和抽取状态。
+- `ContentFetchAttempt`：受控抓取尝试记录，保存尝试次数、状态、开始/完成时间、HTTP 状态、错误码、响应大小和最终 URL。
+- `InformationAnalysisVersion`：AI 分析版本，保存结构化结果、状态、Provider、模型、内容 hash、Prompt/Schema 版本。
+- `InformationStockRelation`：信息与股票的关系，区分 AI 建议、用户确认和用户拒绝。
+- `InformationEntityMention`：AI 或用户识别出的行业、概念、公司、产品等实体提及。
+- `VerificationItem`：待核实事项，来源于 AI 分析或用户后续处理。
+
+建模边界：AI 接口配置、AI 调用日志、信息内容版本和业务分析结果分别建模，不塞入 `UserSettings`；AI 调用日志不长期保存完整第三方正文、完整 Prompt、API Key 或隐藏推理。

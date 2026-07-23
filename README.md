@@ -32,3 +32,6 @@ GeniusTrader 是一套面向 A 股个人研究场景的自选股复盘与多源�
 ## 当前状态
 
 本仓库尚未初始化任何业务工程。后续只有在产品文档基线获得确认后，才能进入技术方案、工程初始化和代码开发阶段。
+## Backend Phase 2 Scope Note
+
+The backend second phase adds controlled information intake, encrypted user AI Provider configuration, AI Gateway metadata logging, and structured information analysis. It does not add broker access, trading, full-site social crawling, real market-data provider selection, real AI calls in tests, or production deployment.

@@ -143,3 +143,10 @@ Repository 查询不得先按资源 ID 查出记录后再在 Python 判断归属
 - 测试库和开发库隔离：测试清理、迁移回滚和重新升级仅作用于 `geniustrader_test`。
 - Windows 启动方式：继续优先使用 `python -m app.cli.run_dev`。
 - 范围边界：仍未实现真实行情、公告资讯、AI Gateway、估值、复盘、通知编排、微信和 Docker。
+## 后端第二阶段补充：信息采集与 AI Gateway
+
+- 新增 `ai_provider_configs`、`ai_tasks`、`ai_task_attempts`、`information_items`、`information_sources`、`information_contents`、`content_fetch_attempts`、`information_analysis_versions`、`information_stock_relations`、`information_entity_mentions`、`verification_items`。
+- 路由新增 `/api/v1/ai/providers` 和 `/api/v1/information`，继续使用既有 cookie session、`DataEnvelope`、`AppError` 和 `X-Request-ID`。
+- 服务层新增 AI Provider 管理、受控 URL 抓取、HTML 正文提取、AI Gateway 和信息分析编排；当前同步执行，未来可迁移到任务队列。
+- 安全边界：AI API Key Fernet/MultiFernet 加密；URL 抓取执行 SSRF 校验；AI Prompt 对第三方文本设置不可信边界；日志和审计元数据脱敏。
+- 当前不新增 Redis、Celery、Kafka、Docker、浏览器自动化、全站爬虫、真实行情接入、每日复盘生成或通知业务。

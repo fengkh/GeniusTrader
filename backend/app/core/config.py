@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parent
 LOCAL_DATABASE_ENV = REPO_ROOT / ".local" / "database.env"
+LOCAL_APP_ENV = REPO_ROOT / ".local" / "app.env"
 BACKEND_ENV = BACKEND_ROOT / ".env"
 
 
@@ -26,9 +27,29 @@ class Settings(BaseSettings):
         validation_alias="CORS_ALLOWED_ORIGINS",
     )
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
+    app_encryption_keys: str = Field(default="", validation_alias="APP_ENCRYPTION_KEYS")
+    ai_request_timeout_seconds: int = Field(default=60, validation_alias="AI_REQUEST_TIMEOUT_SECONDS")
+    ai_max_input_chars: int = Field(default=30000, validation_alias="AI_MAX_INPUT_CHARS")
+    ai_max_output_tokens: int = Field(default=4000, validation_alias="AI_MAX_OUTPUT_TOKENS")
+    ai_max_retries: int = Field(default=1, validation_alias="AI_MAX_RETRIES")
+    content_fetch_timeout_seconds: int = Field(
+        default=10,
+        validation_alias="CONTENT_FETCH_TIMEOUT_SECONDS",
+    )
+    content_fetch_max_bytes: int = Field(default=2097152, validation_alias="CONTENT_FETCH_MAX_BYTES")
+    content_fetch_max_redirects: int = Field(default=3, validation_alias="CONTENT_FETCH_MAX_REDIRECTS")
+    content_allowed_types: str = Field(
+        default="text/html,text/plain,application/xhtml+xml",
+        validation_alias="CONTENT_ALLOWED_TYPES",
+    )
+    allow_private_ai_base_url: bool = Field(default=False, validation_alias="ALLOW_PRIVATE_AI_BASE_URL")
+    information_max_manual_text_chars: int = Field(
+        default=50000,
+        validation_alias="INFORMATION_MAX_MANUAL_TEXT_CHARS",
+    )
 
     model_config = SettingsConfigDict(
-        env_file=(LOCAL_DATABASE_ENV, BACKEND_ENV),
+        env_file=(LOCAL_DATABASE_ENV, LOCAL_APP_ENV, BACKEND_ENV),
         env_file_encoding="utf-8-sig",
         case_sensitive=False,
         extra="ignore",
@@ -38,6 +59,14 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def encryption_keys(self) -> list[str]:
+        return [key.strip() for key in self.app_encryption_keys.split(",") if key.strip()]
+
+    @property
+    def allowed_content_types(self) -> set[str]:
+        return {item.strip().lower() for item in self.content_allowed_types.split(",") if item.strip()}
 
     @property
     def is_production(self) -> bool:

@@ -18,6 +18,14 @@ SENSITIVE_KEYS = {
     "authorization",
     "database_url",
     "api_key",
+    "encrypted_api_key",
+    "extra_headers",
+    "extra_headers_encrypted",
+    "app_encryption_keys",
+    "prompt",
+    "raw_prompt",
+    "raw_input",
+    "raw_response",
 }
 
 

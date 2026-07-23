@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from cryptography.fernet import Fernet
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
@@ -22,6 +23,17 @@ REPO_ROOT = BACKEND_ROOT.parent
 LOCAL_DATABASE_ENV = REPO_ROOT / ".local" / "database.env"
 TRUNCATE_TABLES = [
     "audit_logs",
+    "verification_items",
+    "information_entity_mentions",
+    "information_stock_relations",
+    "information_analysis_versions",
+    "content_fetch_attempts",
+    "information_contents",
+    "information_sources",
+    "ai_task_attempts",
+    "ai_tasks",
+    "ai_provider_configs",
+    "information_items",
     "watchlist_item_tags",
     "user_watchlist_items",
     "user_tags",
@@ -51,6 +63,8 @@ TEST_DATABASE_URL = _read_local_database_url()
 if TEST_DATABASE_URL:
     os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("APP_ENV", "development")
+os.environ.setdefault("APP_ENCRYPTION_KEYS", Fernet.generate_key().decode("ascii"))
+os.environ.setdefault("ALLOW_PRIVATE_AI_BASE_URL", "true")
 
 
 def _test_database_available() -> bool:

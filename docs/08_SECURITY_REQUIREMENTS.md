@@ -81,3 +81,12 @@ GeniusTrader 当前 GitHub 仓库按公开仓库处理，所有文档、配置�
 密码使用 Argon2id 哈希，不保存明文或可逆密码。管理员创建用户、登录失败、退出、修改密码、自选股变更、分组和标签变更均应记录审计日志，但审计 metadata 必须过滤密码、临时密码、Session Token、Cookie、Authorization、数据库连接信息和未来 AI API Key。
 
 集成测试必须使用独立测试库 `geniustrader_test` 或明确隔离的测试环境。不得为了运行测试而清空开发库 `geniustrader`，也不得把本地 `root` 项目角色提升为超级用户或 `CREATEDB` 角色。
+## 后端第二阶段安全补充
+
+- `APP_ENCRYPTION_KEYS` 必须使用 Fernet 格式密钥，可配置多把密钥用于轮换；第一把用于新加密，所有密钥用于解密历史密文。
+- 用户 AI API Key 必须后端加密保存，不得返回前端，不得写入普通日志、审计元数据或 AI 调用日志。
+- AI Base URL 和内容 URL 必须进行协议、用户信息、主机、DNS/IP 和私有地址校验；生产默认不允许私有地址 AI Base URL。
+- 受控抓取只允许 http/https，限制超时、最大字节数、重定向次数和内容类型；重定向目标必须重新校验。
+- 抓取器不得携带用户 Cookie、不得登录、不得执行浏览器自动化或 JS、不得绕过验证码、不得使用代理、不得抓取二级链接。
+- AI Prompt 必须明确将第三方内容标记为不可信输入，防止 Prompt Injection 覆盖系统指令。
+- 日志脱敏范围包括 password、temporary_password、token、authorization、database_url、api_key、encrypted_api_key、extra_headers、app_encryption_keys、完整 prompt 和原始响应。
