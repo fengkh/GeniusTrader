@@ -60,3 +60,11 @@
 - 决策：AI 股票关联默认为 suggested，由用户确认或拒绝；用户手动关联默认为 confirmed。
 - 决策：AI 调用日志只保存任务元数据、Token、耗时、状态、错误码和关联业务结果，不长期保存完整输入、完整第三方正文、完整 Prompt、API Key 或隐藏推理。
 - 决策：抓取失败、AI 失败和部分字段缺失只影响对应模块，不导致信息条目或页面整体不可用。
+
+## 2026-07-23 前端第三阶段决策
+
+- 决策：`/login`、`/information`、`/information/[itemId]` 和 `/settings/ai` 进入真实本地后端 API 联调。
+- 决策：`/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、`/reviews`、`/notifications` 和 `/settings/notifications` 本阶段继续保持 Mock。
+- 决策：前端统一 API client 使用 `NEXT_PUBLIC_API_BASE_URL`、`credentials: "include"` 和 `X-CSRF-Token`，不使用 localStorage 或 sessionStorage 保存 Session、密码或 AI Key。
+- 决策：后端 Session 增加 CSRF 绑定；登录发放独立 CSRF Cookie，写请求校验 `X-CSRF-Token`，退出同时清理 Session 与 CSRF Cookie。
+- 决策：AI Provider 页面不显示完整 API Key，测试连接只通过后端 AI Gateway 执行，不在浏览器端直连第三方 AI。

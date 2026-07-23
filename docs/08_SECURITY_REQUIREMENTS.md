@@ -90,3 +90,14 @@ GeniusTrader 当前 GitHub 仓库按公开仓库处理，所有文档、配置�
 - 抓取器不得携带用户 Cookie、不得登录、不得执行浏览器自动化或 JS、不得绕过验证码、不得使用代理、不得抓取二级链接。
 - AI Prompt 必须明确将第三方内容标记为不可信输入，防止 Prompt Injection 覆盖系统指令。
 - 日志脱敏范围包括 password、temporary_password、token、authorization、database_url、api_key、encrypted_api_key、extra_headers、app_encryption_keys、完整 prompt 和原始响应。
+
+## 第三阶段前端联调安全补充
+
+- 浏览器认证继续使用数据库 Session；Session Token 只存在 HttpOnly Cookie 中，前端不得写入 localStorage、sessionStorage、URL、日志或页面状态。
+- 登录成功必须生成独立 CSRF Token；后端保存 CSRF Token 哈希并绑定 Session。
+- 后端向浏览器设置非 HttpOnly、SameSite=Lax 的 CSRF Cookie；前端对 `POST`、`PUT`、`PATCH`、`DELETE` 请求必须读取该 Cookie 并通过 `X-CSRF-Token` 请求头回传。
+- `GET`、`HEAD`、`OPTIONS` 不要求 CSRF；登录请求不要求既有 CSRF，但必须校验 `Origin` 是否属于允许的 CORS 来源。
+- 退出登录必须清理 Session Cookie 和 CSRF Cookie；Session 吊销后对应 CSRF Token 同时失效。
+- 前端 API client 必须使用 `credentials: "include"`，并解析统一错误中的 `request_id` 供排障使用。
+- AI Provider 页面不得展示完整 API Key；Key 输入框提交后必须清空；前端不得直接调用用户配置的第三方 AI Base URL。
+- 外部链接展示必须使用普通链接并设置 `target="_blank"` 与 `rel="noreferrer"`；抓取正文和用户补充文本按纯文本展示，不使用 `dangerouslySetInnerHTML`。

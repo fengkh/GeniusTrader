@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
 from app.core.security import (
+    generate_csrf_token,
     generate_session_token,
+    hash_csrf_token,
     hash_password,
     hash_session_token,
     validate_password_strength,
@@ -45,7 +47,7 @@ async def login_user(
     request_id: str | None,
     user_agent: str | None,
     ip_address: str | None,
-) -> tuple[User, str, UserSession]:
+) -> tuple[User, str, str, UserSession]:
     normalized = username.strip().lower()
     user = await get_user_by_username(session, normalized)
     if not user or not user.credential:
@@ -92,9 +94,11 @@ async def login_user(
         raise AppError(ErrorCode.INVALID_CREDENTIALS, "用户名或密码错误", status_code=401)
 
     token = generate_session_token()
+    csrf_token = generate_csrf_token()
     session_row = UserSession(
         user_id=user.id,
         token_hash=hash_session_token(token),
+        csrf_token_hash=hash_csrf_token(csrf_token),
         expires_at=now + timedelta(seconds=settings.session_ttl_seconds),
         last_seen_at=now,
         ip_address=ip_address,
@@ -116,7 +120,7 @@ async def login_user(
     await session.commit()
     await session.refresh(user)
     await session.refresh(session_row)
-    return user, token, session_row
+    return user, token, csrf_token, session_row
 
 
 async def authenticate_session(

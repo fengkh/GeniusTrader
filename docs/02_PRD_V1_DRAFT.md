@@ -372,3 +372,14 @@
 - 输出：信息条目列表和详情、来源记录、当前内容版本、AI 分析版本、股票关联建议、实体提及和待核实事项；AI 结果必须显示为分析结论或建议，不得替代原始正文。
 - 错误与降级：URL 无效、协议不允许、私有地址拦截、内容类型不允许、内容过大、抓取超时、正文不足、AI Provider 缺失、AI 调用失败和 AI 结构校验失败均需返回统一错误码；抓取失败不影响用户手动补充，AI 失败不影响原始内容、来源和人工关联查看。
 - MVP 验收：同一用户可创建手动信息和 URL 信息；重复 URL 被拦截；不同用户信息隔离；API Key 不返回前端、不明文落库、不进入日志；AI 结构化结果严格校验，第一次无效可发起一次修复，第二次仍无效则保存失败版本；AI 建议的股票关联默认为 suggested，用户可确认或拒绝。
+
+## 第三阶段补充：前端真实 API 联调
+
+- 范围：`/login`、`/information`、`/information/[itemId]` 和 `/settings/ai` 接入本地后端真实 API。
+- 登录：前端通过后端 Session Cookie 建立登录状态，不在 localStorage 或 sessionStorage 保存 Session、密码或 Token。
+- CSRF：登录成功后后端设置 HttpOnly Session Cookie 和非 HttpOnly SameSite=Lax CSRF Cookie；前端写请求必须通过 `X-CSRF-Token` 回传 CSRF Token。
+- AI 配置：用户可新增、编辑、测试和删除 OpenAI Compatible Provider；前端不显示完整 API Key，不直接调用第三方 AI；API Key 提交后仅由后端加密保存。
+- 信息中心：用户可筛选信息条目，新增手动文本或单个公开 URL，查看来源记录、当前正文版本、AI 分析版本、股票关联建议、实体提及和待核实事项。
+- 降级：URL 抓取失败、AI Provider 未配置、AI 调用失败或结构校验失败只影响对应模块，不影响信息条目、来源、正文和人工关联查看。
+- 本阶段仍保持 Mock：`/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、`/reviews`、`/notifications` 和 `/settings/notifications` 不接入真实业务 API。
+- 禁止：本阶段不接入真实行情、真实公告资讯 Provider、真实复盘生成、通知真实业务、微信公众号或外部推送；AI 仍不得生成行情、K线、量化指标、公告原文或来源时间。

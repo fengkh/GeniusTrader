@@ -4,6 +4,7 @@ from datetime import UTC
 from fastapi import APIRouter, Request, Response
 
 from app.api.dependencies import CurrentSessionUser, SessionDependency, SettingsDependency, get_request_id
+from app.core.errors import AppError, ErrorCode
 from app.schemas.auth import AuthUserResponse, ChangePasswordRequest, LoginRequest, LoginResponse
 from app.schemas.common import DataEnvelope, MessageResponse
 from app.schemas.user import CurrentUserRead
@@ -20,7 +21,11 @@ async def login(
     settings: SettingsDependency,
     session: SessionDependency,
 ) -> dict[str, LoginResponse]:
-    user, token, session_row = await login_user(
+    origin = request.headers.get("origin")
+    if origin and origin not in settings.cors_origins:
+        raise AppError(ErrorCode.FORBIDDEN, "登录来源不被允许", status_code=403)
+
+    user, token, csrf_token, session_row = await login_user(
         session,
         username=payload.username,
         password=payload.password,
@@ -33,6 +38,16 @@ async def login(
         key=settings.session_cookie_name,
         value=token,
         httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+        path="/",
+        max_age=settings.session_ttl_seconds,
+        expires=session_row.expires_at.astimezone(UTC),
+    )
+    response.set_cookie(
+        key=settings.csrf_cookie_name,
+        value=csrf_token,
+        httponly=False,
         secure=settings.session_cookie_secure,
         samesite="lax",
         path="/",
@@ -63,6 +78,12 @@ async def logout(
         key=settings.session_cookie_name,
         path="/",
         httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="lax",
+    )
+    response.delete_cookie(
+        key=settings.csrf_cookie_name,
+        path="/",
         secure=settings.session_cookie_secure,
         samesite="lax",
     )

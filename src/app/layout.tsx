@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import { AppShell } from "@/components/layout/AppShell";
 import { APP_NAME, MOCK_DISCLOSURE } from "@/lib/constants";
 import { MockStateProvider } from "@/lib/mock-state";
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="zh-CN">
       <body>
         <MockStateProvider>
-          <AppShell>{children}</AppShell>
+          <AuthProvider>
+            <AppShell>{children}</AppShell>
+          </AuthProvider>
         </MockStateProvider>
       </body>
     </html>

@@ -11,6 +11,7 @@ from app.api.error_handlers import (
 )
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.csrf import CsrfProtectionMiddleware
 from app.core.errors import AppError
 from app.core.logging import RequestLoggingMiddleware, setup_logging
 
@@ -20,12 +21,13 @@ setup_logging(settings.log_level)
 app = FastAPI(title=settings.app_name)
 
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(CsrfProtectionMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Request-ID"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Request-ID", "X-CSRF-Token"],
 )
 
 app.add_exception_handler(AppError, app_error_handler)

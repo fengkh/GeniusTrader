@@ -20,6 +20,10 @@ class Settings(BaseSettings):
         default="geniustrader_session",
         validation_alias="SESSION_COOKIE_NAME",
     )
+    csrf_cookie_name: str = Field(
+        default="geniustrader_csrf",
+        validation_alias="CSRF_COOKIE_NAME",
+    )
     session_ttl_seconds: int = Field(default=604800, validation_alias="SESSION_TTL_SECONDS")
     session_cookie_secure: bool = Field(default=False, validation_alias="SESSION_COOKIE_SECURE")
     cors_allowed_origins: str = Field(

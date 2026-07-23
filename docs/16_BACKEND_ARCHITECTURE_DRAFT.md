@@ -150,3 +150,12 @@ Repository 查询不得先按资源 ID 查出记录后再在 Python 判断归属
 - 服务层新增 AI Provider 管理、受控 URL 抓取、HTML 正文提取、AI Gateway 和信息分析编排；当前同步执行，未来可迁移到任务队列。
 - 安全边界：AI API Key Fernet/MultiFernet 加密；URL 抓取执行 SSRF 校验；AI Prompt 对第三方文本设置不可信边界；日志和审计元数据脱敏。
 - 当前不新增 Redis、Celery、Kafka、Docker、浏览器自动化、全站爬虫、真实行情接入、每日复盘生成或通知业务。
+
+## 第三阶段补充：浏览器 CSRF 与前端联调
+
+- `user_sessions` 增加 `csrf_token_hash`，保存当前 Session 绑定的 CSRF Token 哈希。
+- 登录成功生成独立 Session Token 和 CSRF Token：Session Token 写入 HttpOnly Cookie，CSRF Token 写入非 HttpOnly SameSite=Lax Cookie。
+- `POST`、`PUT`、`PATCH` 和 `DELETE` 写请求必须携带 `X-CSRF-Token`，并与 CSRF Cookie 及数据库哈希匹配。
+- `GET`、`HEAD`、`OPTIONS` 不要求 CSRF；`POST /api/v1/auth/login` 不要求已有 CSRF，但校验请求 `Origin` 是否在 CORS 允许列表内。
+- `POST /api/v1/auth/logout` 吊销 Session，并清理 Session Cookie 和 CSRF Cookie。
+- 本阶段前端真实消费 `/api/v1/auth`、`/api/v1/ai/providers`、`/api/v1/information` 和 `/api/v1/stocks`；其他页面仍保持 Mock，不代表行情、复盘、估值或通知后端已经接入。

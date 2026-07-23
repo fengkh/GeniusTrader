@@ -17,6 +17,7 @@ async def test_login_me_logout_and_cookie_security(client, db_session):
     assert response.status_code == 200
     assert "token" not in response.text.lower()
     assert "httponly" in response.headers["set-cookie"].lower()
+    assert client.cookies.get("geniustrader_csrf")
 
     me = await client.get("/api/v1/auth/me")
     assert me.status_code == 200
@@ -30,6 +31,36 @@ async def test_login_me_logout_and_cookie_security(client, db_session):
     after_logout = await client.get("/api/v1/auth/me")
     assert after_logout.status_code == 401
     assert after_logout.json()["error"]["code"] == "SESSION_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_csrf_token_is_required_for_authenticated_write_requests(client, db_session):
+    user = await create_user(db_session, username=unique_username("csrf"), password="UserPass123")
+    assert (await login(client, username=user.username, password="UserPass123")).status_code == 200
+
+    client.headers.pop("X-CSRF-Token", None)
+    missing = await client.post("/api/v1/auth/change-password", json={})
+    assert missing.status_code == 403
+    assert missing.json()["error"]["code"] == "CSRF_TOKEN_REQUIRED"
+
+    client.headers["X-CSRF-Token"] = "wrong-token"
+    invalid = await client.post("/api/v1/auth/change-password", json={})
+    assert invalid.status_code == 403
+    assert invalid.json()["error"]["code"] == "CSRF_TOKEN_INVALID"
+
+
+@pytest.mark.asyncio
+async def test_login_rejects_disallowed_origin(client, db_session):
+    user = await create_user(db_session, username=unique_username("origin"), password="UserPass123")
+
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"username": user.username, "password": "UserPass123"},
+        headers={"Origin": "https://evil.example"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
 @pytest.mark.asyncio

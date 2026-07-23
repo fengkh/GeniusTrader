@@ -108,6 +108,8 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 
 当前前端仍使用本地 Mock 数据，不会自动连接本后端。
 
+第三阶段起，前端 `/login`、`/information`、`/information/[itemId]` 和 `/settings/ai` 已开始连接本地后端。其余今日、自选股、个股详情、复盘历史、通知和通知设置页面仍保持 Mock。
+
 ## API 边界
 
 ### 健康检查
@@ -123,6 +125,8 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 - `POST /api/v1/auth/change-password`
 
 认证使用数据库 Session。浏览器只持有随机不透明 Token 的 HttpOnly Cookie；数据库只保存 Token 哈希；JSON 响应不返回 Session Token。
+
+登录成功还会生成独立 CSRF Token：后端保存 CSRF Token 哈希，并向浏览器设置非 HttpOnly、SameSite=Lax 的 CSRF Cookie。除登录外，`POST`、`PUT`、`PATCH` 和 `DELETE` 请求必须携带 `X-CSRF-Token` 请求头。退出登录会同时清理 Session Cookie 和 CSRF Cookie。
 
 ### 管理员
 
@@ -193,6 +197,7 @@ This backend stage adds:
 Runtime configuration additions:
 
 - `APP_ENCRYPTION_KEYS`: comma-separated Fernet keys. The first key encrypts new secrets; all keys decrypt existing secrets.
+- `CSRF_COOKIE_NAME`: browser-readable CSRF cookie name. Default: `geniustrader_csrf`.
 - `AI_REQUEST_TIMEOUT_SECONDS`, `AI_MAX_INPUT_CHARS`, `AI_MAX_OUTPUT_TOKENS`, `AI_MAX_RETRIES`.
 - `CONTENT_FETCH_TIMEOUT_SECONDS`, `CONTENT_FETCH_MAX_BYTES`, `CONTENT_FETCH_MAX_REDIRECTS`, `CONTENT_ALLOWED_TYPES`.
 - `ALLOW_PRIVATE_AI_BASE_URL`: development-only escape hatch for local AI-compatible endpoints.
@@ -218,21 +223,23 @@ Manual API smoke examples use placeholders only:
 # 1. Login with a locally created test account and keep the session cookie.
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/auth/login -ContentType "application/json" -Body '{"username":"TEST_USERNAME","password":"TEST_PASSWORD"}'
+$csrf = ($session.Cookies.GetCookies("http://127.0.0.1:8000") | Where-Object { $_.Name -eq "geniustrader_csrf" }).Value
+$headers = @{ "X-CSRF-Token" = $csrf }
 
 # 2. Create an AI Provider. Do not paste real secrets into shared logs.
-Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/ai/providers -ContentType "application/json" -Body '{"provider_name":"Local compatible model","base_url":"https://AI_BASE_URL_PLACEHOLDER/v1","model_name":"MODEL_NAME_PLACEHOLDER","api_key":"API_KEY_PLACEHOLDER","enabled":true}'
+Invoke-RestMethod -Method Post -WebSession $session -Headers $headers -Uri http://127.0.0.1:8000/api/v1/ai/providers -ContentType "application/json" -Body '{"provider_name":"Local compatible model","base_url":"https://AI_BASE_URL_PLACEHOLDER/v1","model_name":"MODEL_NAME_PLACEHOLDER","api_key":"API_KEY_PLACEHOLDER","enabled":true}'
 
 # 3. Submit manual information text.
-Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/manual -ContentType "application/json" -Body '{"title":"示例信息","text":"这是一段用户手动补充的公开信息摘要。","source_type":"user_note"}'
+Invoke-RestMethod -Method Post -WebSession $session -Headers $headers -Uri http://127.0.0.1:8000/api/v1/information/manual -ContentType "application/json" -Body '{"title":"示例信息","text":"这是一段用户手动补充的公开信息摘要。","source_type":"user_note"}'
 
 # 4. Submit a public URL for controlled fetch.
-Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/url -ContentType "application/json" -Body '{"url":"https://example.com/article","source_type":"news","fetch_now":true}'
+Invoke-RestMethod -Method Post -WebSession $session -Headers $headers -Uri http://127.0.0.1:8000/api/v1/information/url -ContentType "application/json" -Body '{"url":"https://example.com/article","source_type":"news","fetch_now":true}'
 
 # 5. Analyze an information item after replacing ITEM_ID_PLACEHOLDER.
-Invoke-RestMethod -Method Post -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/ITEM_ID_PLACEHOLDER/analyze -ContentType "application/json" -Body '{"force":false}'
+Invoke-RestMethod -Method Post -WebSession $session -Headers $headers -Uri http://127.0.0.1:8000/api/v1/information/ITEM_ID_PLACEHOLDER/analyze -ContentType "application/json" -Body '{"force":false}'
 
 # 6. Confirm or reject an AI suggested stock relation after replacing IDs.
-Invoke-RestMethod -Method Patch -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/ITEM_ID_PLACEHOLDER/stock-relations/RELATION_ID_PLACEHOLDER -ContentType "application/json" -Body '{"relation_status":"confirmed"}'
+Invoke-RestMethod -Method Patch -WebSession $session -Headers $headers -Uri http://127.0.0.1:8000/api/v1/information/ITEM_ID_PLACEHOLDER/stock-relations/RELATION_ID_PLACEHOLDER -ContentType "application/json" -Body '{"relation_status":"confirmed"}'
 
 # 7. View information detail.
 Invoke-RestMethod -Method Get -WebSession $session -Uri http://127.0.0.1:8000/api/v1/information/ITEM_ID_PLACEHOLDER

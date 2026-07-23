@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut, ShieldCheck } from "lucide-react";
 
+import { useAuth } from "@/components/auth/AuthProvider";
 import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
 import { MockRoleSwitcher } from "@/components/mock/MockRoleSwitcher";
 import { MockScenarioSwitcher } from "@/components/mock/MockScenarioSwitcher";
@@ -11,6 +13,13 @@ import { useMockState } from "@/lib/mock-state";
 
 export default function SettingsPage() {
   const { role } = useMockState();
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await logout();
+    router.push("/login");
+  }
 
   return (
     <PlaceholderPage
@@ -46,6 +55,15 @@ export default function SettingsPage() {
             </div>
           </div>
           <Link
+            href="/settings/ai"
+            className="focus-ring rounded-lg border border-slate-200 bg-white p-4 hover:bg-slate-50"
+          >
+            <p className="text-sm font-semibold text-slate-950">AI接口配置</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              连接本地后端，新增、编辑、测试和删除用户自带 OpenAI Compatible 配置。
+            </p>
+          </Link>
+          <Link
             href="/settings/notifications"
             className="focus-ring rounded-lg border border-slate-200 bg-white p-4 hover:bg-slate-50"
           >
@@ -54,6 +72,21 @@ export default function SettingsPage() {
               查看站内通知偏好、微信公众号Mock状态和免打扰时间。
             </p>
           </Link>
+          {user ? (
+            <button
+              onClick={handleLogout}
+              className="focus-ring flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 text-left hover:bg-slate-50"
+              type="button"
+            >
+              <LogOut className="mt-0.5 h-4 w-4 text-slate-700" />
+              <span>
+                <span className="block text-sm font-semibold text-slate-950">退出当前账户</span>
+                <span className="mt-2 block text-sm leading-6 text-slate-600">
+                  当前后端登录用户：{user.display_name || user.username}
+                </span>
+              </span>
+            </button>
+          ) : null}
         </div>
       }
     />

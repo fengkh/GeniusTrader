@@ -91,3 +91,11 @@
 - 设置页的 AI 接口配置应支持 OpenAI Compatible Provider 的新增、查看、更新、删除和测试连接；页面永远不显示完整 API Key。
 - 个股详情和今日页可以引用已确认或待确认的信息关联，但必须保留“AI 建议/用户确认/用户拒绝”的状态表达。
 - 抓取失败、AI 失败、空正文和部分字段缺失均应只影响对应模块，不得导致信息中心、个股详情或今日页整体不可用。
+
+## 第三阶段前端真实 API 联调页面
+
+- `/login`：接入后端登录、`/auth/me` 和退出后的重新登录流程；不开放公众注册，不提供邮件找回密码，不在前端保存 Session Token。
+- `/information`：接入信息列表、筛选、分页、手动文本录入、单个公开 URL 录入和股票基础目录搜索；不实现全站爬虫或真实公告资讯订阅。
+- `/information/[itemId]`：接入信息详情、来源记录、正文版本、AI 分析版本、股票关联确认/拒绝/新增、补充正文、重新抓取、分析和归档。
+- `/settings/ai`：接入 AI Provider 列表、新增、编辑、测试和删除；页面不展示完整 API Key。
+- `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、`/reviews`、`/notifications`、`/settings/notifications` 在本阶段仍为 Mock 页面，用于保持原型导航和页面状态验证。

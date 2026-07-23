@@ -187,7 +187,11 @@ async def seed_stock(session, *, symbol: str = "600519", exchange: str = "SH", n
 
 
 async def login(client: AsyncClient, *, username: str, password: str):
-    return await client.post("/api/v1/auth/login", json={"username": username, "password": password})
+    response = await client.post("/api/v1/auth/login", json={"username": username, "password": password})
+    csrf_token = client.cookies.get("geniustrader_csrf")
+    if response.status_code == 200 and csrf_token:
+        client.headers["X-CSRF-Token"] = csrf_token
+    return response
 
 
 def unique_username(prefix: str = "user") -> str:

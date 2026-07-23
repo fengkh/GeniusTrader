@@ -91,3 +91,16 @@
 - 信息列表支持状态、来源类型、股票、重要、已读和关键词筛选。
 - 不同用户的信息、AI Provider、分析版本和关联关系相互隔离。
 - AI 失败或内容抓取失败不影响自选股、行情、公告原文、用户手动内容和历史数据查看。
+
+## 第三阶段前端联调新增验收项
+
+- `/login` 可使用后端账户登录；登录成功后浏览器持有 HttpOnly Session Cookie 和 CSRF Cookie，JSON 不返回 Session Token。
+- 前端不使用 localStorage 或 sessionStorage 保存 Session、密码、AI Key 或 CSRF 以外的认证状态。
+- 所有真实 API 写请求携带 `X-CSRF-Token`；缺失或错误 CSRF Token 时后端返回统一错误格式和 `request_id`。
+- `/settings/ai` 可查看、新增、编辑、测试和删除当前用户 AI Provider，完整 API Key 不回显，提交后前端输入框清空。
+- `/information` 可按关键词、状态、来源类型、股票、重要、已读和日期筛选信息，空列表、加载中和错误状态可见。
+- `/information` 可创建手动文本信息和单个公开 URL 信息；URL 抓取失败时条目仍可见。
+- `/information/[itemId]` 可查看来源、当前正文版本、AI 分析版本、实体提及、待核实事项和股票关联；正文以纯文本展示。
+- 用户可确认或拒绝 AI suggested 股票关联，并可手动新增 confirmed 股票关联。
+- AI Provider 未配置、AI 调用失败或结构校验失败时，不影响信息条目来源、正文、人工关联和列表查看。
+- `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、`/reviews`、`/notifications` 和 `/settings/notifications` 在本阶段仍保持 Mock，不作为真实 API 联调验收项。
