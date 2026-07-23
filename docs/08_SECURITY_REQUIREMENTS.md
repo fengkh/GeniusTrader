@@ -73,3 +73,11 @@ GeniusTrader 当前 GitHub 仓库按公开仓库处理，所有文档、配置�
 - 是否存在真实用户导入、导出、备份或测试数据。
 - 是否错误写入具体供应商密钥、账号或内部地址。
 - 是否将待确认事项写成已确认实现。
+
+## 后端第一阶段安全基线
+
+2026-07-23 后端第一阶段采用数据库 Session 认证，不使用 JWT 或 localStorage 保存登录凭证。Session Token 必须为随机不透明值，浏览器通过 HttpOnly、SameSite=Lax Cookie 持有，数据库只保存 Token 哈希。
+
+密码使用 Argon2id 哈希，不保存明文或可逆密码。管理员创建用户、登录失败、退出、修改密码、自选股变更、分组和标签变更均应记录审计日志，但审计 metadata 必须过滤密码、临时密码、Session Token、Cookie、Authorization、数据库连接信息和未来 AI API Key。
+
+集成测试必须使用独立测试库 `geniustrader_test` 或明确隔离的测试环境。不得为了运行测试而清空开发库 `geniustrader`，也不得把本地 `root` 项目角色提升为超级用户或 `CREATEDB` 角色。

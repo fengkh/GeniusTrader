@@ -25,7 +25,7 @@ DATABASE_URL=postgresql+psycopg://root:PASSWORD_PLACEHOLDER@127.0.0.1:5432/geniu
 APP_TIMEZONE=Asia/Shanghai
 ```
 
-`PASSWORD_PLACEHOLDER` 仅表示本地开发密码占位。`root/root` 这类简单账号密码只允许用于当前本地开发环境，不得描述为生产环境安全配置。
+`PASSWORD_PLACEHOLDER` 仅表示本地开发密码占位。简单弱口令只允许用于当前本地开发环境，不得描述为生产环境安全配置。
 
 生产环境必须更换强密码，使用最小权限账号，并通过密钥系统或环境变量管理敏感配置。
 

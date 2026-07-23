@@ -36,6 +36,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+.venv-backend/
 .venv-data-spike/
 .venv-free-data-spike/
 venv/

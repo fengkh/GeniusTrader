@@ -54,6 +54,24 @@
 | AC-48 | 通知偏好和通道边界 | `/settings/notifications` 展示站内通知开关、事件偏好、免打扰时间和微信公众号 Mock 状态，并明确未接入真实微信能力 | 页面发起真实 OAuth、扫码、SDK、模板消息或外部 API 调用 |
 | AC-49 | 通知编排解耦 | 复盘、估值、公告、行情和观察条件模块只产生业务事件，不直接调用微信公众号；微信失败不影响站内通知和业务页面 | 每日复盘生成流程直接依赖微信发送成功 |
 | AC-50 | 通知安全和最小披露 | 通知深链不包含 userId、OpenID、Token、API Key 或敏感账户信息；微信摘要不包含完整自选股清单、交易动作、仓位或保证性表述 | 用户 A 收到用户 B 的复盘通知，或外部摘要泄露密钥/完整自选股 |
+| AC-51 | 后端数据库 Session 认证 | 登录成功设置 HttpOnly Cookie，数据库只保存 Session Token 哈希；JSON 不返回 Token；退出、过期、吊销和用户禁用均阻止继续访问 | 前端 localStorage 保存 Token，或数据库保存明文 Session Token |
+| AC-52 | 后端用户数据隔离 | 自选股、分组和标签 API 的查询条件显式包含当前 `user_id`；跨用户读取、修改、删除或引用分组/标签被拒绝且不泄露资源归属 | 仅知道 UUID 即可读取或修改其他用户自选股 |
+| AC-53 | 后端统一错误和请求 ID | 业务错误、参数错误、数据库不可用和内部错误均返回统一 `error.code/message/request_id`，响应头包含 `X-Request-ID` | 客户端看到 Python 堆栈、SQL、数据库连接信息或无请求 ID 的错误 |
+| AC-54 | 后端审计和脱敏 | 管理员创建用户、登录、退出、修改密码、自选股、分组和标签关键操作写入审计日志，且不包含密码、临时密码、Session Token、Cookie 或数据库密码 | 审计 metadata 保存完整临时密码或 Session Token |
+| AC-55 | 后端迁移和测试数据库隔离 | Alembic 升级成功；回滚验证只在 `geniustrader_test` 等明确测试库执行；测试不得清空开发库 | 为了跑测试直接 truncate 或 drop 开发库 `geniustrader` |
+| AC-56 | 后端股票基础目录边界 | 股票基础 API 只返回本地 `stocks` 表基础信息，不返回行情、K线、板块、估值或 AI 结果 | 后端第一阶段硬编码真实行情 Provider 或返回模拟行情为真实数据 |
+
+## 后端第一阶段收尾验收记录
+
+日期：2026-07-23
+
+- 测试数据库 `geniustrader_test` 已创建，owner 为 `root`。
+- 测试库迁移版本为 `202607230001 (head)`。
+- 完整 pytest 已实际运行：`30 passed, 0 failed, 0 skipped`。
+- 测试库迁移回滚和重新升级仅在 `geniustrader_test` 执行。
+- 开发库 `geniustrader` 仅做只读保护检查，未执行回滚、清表或测试夹具。
+- Windows 本地后端启动继续使用 `python -m app.cli.run_dev`。
+- 后端第一阶段仍不包含真实行情、公告资讯、AI Gateway、估值、复盘、通知编排或微信。
 
 ## 验收说明
 

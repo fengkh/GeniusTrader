@@ -200,6 +200,32 @@
 - 不得硬编码真实数据供应商、AI Key 或用户数据。
 - 不得为首批 10 人以内测试规模引入微服务或复杂分布式架构；数据库和业务逻辑不得写死 10 人限制。
 
+## 阶段 4A：后端基础工程、认证与自选股闭环
+
+前置条件：
+
+- 本地 PostgreSQL 已完成发现、初始化和连接验证。
+- 产品负责人批准进入正式后端第一阶段。
+- 数据供应商、AI Gateway、估值和微信相关开放问题仍保持开放。
+
+目标：
+
+- 建立 FastAPI、SQLAlchemy 2、Alembic、Pydantic 2、Ruff 和 pytest 后端基础工程。
+- 通过 Alembic 创建账户、凭证、数据库 Session、股票基础目录、自选股、分组、标签、标签关联和审计日志表。
+- 实现管理员创建用户、登录、退出、当前用户、修改密码、股票基础查询、自选股 CRUD、分组和标签 API。
+- 建立统一错误格式、请求 ID、结构化日志、审计脱敏和测试数据库隔离。
+
+限制：
+
+- 不接入真实行情 Provider、公告资讯 Provider、AI Gateway、估值、复盘生成、通知编排、微信、Docker 或前端真实 API。
+- 不把 Tushare、AKShare、efinance、BaoStock 或其他候选 Provider 写成最终方案。
+
+输出：
+
+- `backend/` 后端工程。
+- `docs/16_BACKEND_ARCHITECTURE_DRAFT.md`。
+- 后端 README、本地运行说明、迁移和测试。
+
 ## 阶段 5：MVP 实现与验证
 
 目标：
