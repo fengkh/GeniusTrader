@@ -42,6 +42,7 @@ async def call_openai_chat_completion(
     messages: list[dict[str, str]],
     settings: Settings,
     max_tokens: int | None = None,
+    response_format: dict[str, str] | None = None,
 ) -> AIChatResult:
     validated = validate_ai_base_url(provider.base_url, settings)
     timeout = provider.request_timeout_seconds or settings.ai_request_timeout_seconds
@@ -51,6 +52,8 @@ async def call_openai_chat_completion(
         "temperature": 0,
         "max_tokens": max_tokens or provider.max_output_tokens or settings.ai_max_output_tokens,
     }
+    if response_format is not None:
+        payload["response_format"] = response_format
     started = time.perf_counter()
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:

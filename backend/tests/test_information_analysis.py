@@ -108,6 +108,7 @@ async def test_information_analysis_success_creates_version_and_suggestions(clie
         from app.services.ai_gateway import AIChatResult
 
         assert kwargs["messages"][1]["content"].count("UNTRUSTED_CONTENT_START") == 1
+        assert kwargs["response_format"] == {"type": "json_object"}
         return AIChatResult(
             content=valid_analysis_json(),
             http_status=200,
@@ -149,6 +150,98 @@ async def test_analysis_invalid_json_is_repaired_once(client: AsyncClient, db_se
     assert calls["count"] == 2
     attempts = (await db_session.execute(select(AITaskAttempt).order_by(AITaskAttempt.attempt_number))).scalars().all()
     assert [attempt.status for attempt in attempts] == ["failed", "succeeded"]
+
+
+async def test_analysis_accepts_json_markdown_fence(client: AsyncClient, db_session, monkeypatch):
+    await _login_with_provider(client, db_session)
+    item = await client.post("/api/v1/information/manual", json={"text": "贵州茅台信息。"})
+    item_id = item.json()["data"]["id"]
+
+    async def fake_call(**kwargs):
+        from app.services.ai_gateway import AIChatResult
+
+        return AIChatResult(
+            content=f"```json\n{valid_analysis_json()}\n```",
+            http_status=200,
+            duration_ms=10,
+            input_tokens=10,
+            output_tokens=10,
+        )
+
+    monkeypatch.setattr("app.services.ai_gateway.call_openai_chat_completion", fake_call)
+    response = await client.post(f"/api/v1/information/{item_id}/analyze", json={})
+
+    assert response.status_code == 200
+    assert response.json()["data"]["latest_analysis"]["analysis_status"] == "succeeded"
+
+
+async def test_analysis_schema_repair_receives_contract_and_errors(client: AsyncClient, db_session, monkeypatch):
+    await _login_with_provider(client, db_session)
+    item = await client.post("/api/v1/information/manual", json={"text": "贵州茅台信息。"})
+    item_id = item.json()["data"]["id"]
+    calls = {"count": 0, "repair_prompt": ""}
+
+    async def fake_call(**kwargs):
+        from app.services.ai_gateway import AIChatResult
+
+        calls["count"] += 1
+        if calls["count"] == 1:
+            content = json.dumps({"summary": "missing fields"}, ensure_ascii=False)
+        else:
+            calls["repair_prompt"] = kwargs["messages"][1]["content"]
+            content = valid_analysis_json()
+        return AIChatResult(content=content, http_status=200, duration_ms=10, input_tokens=10, output_tokens=10)
+
+    monkeypatch.setattr("app.services.ai_gateway.call_openai_chat_completion", fake_call)
+    response = await client.post(f"/api/v1/information/{item_id}/analyze", json={})
+
+    assert response.status_code == 200
+    assert calls["count"] == 2
+    assert "JSON_SCHEMA" in calls["repair_prompt"]
+    assert "VALIDATION_ERRORS" in calls["repair_prompt"]
+    assert "schema_version" in calls["repair_prompt"]
+    attempts = (await db_session.execute(select(AITaskAttempt).order_by(AITaskAttempt.attempt_number))).scalars().all()
+    assert attempts[0].attempt_metadata["validation_errors"]
+
+
+async def test_analysis_prompt_handles_fictional_claims_and_explicit_stock_symbols(client: AsyncClient, db_session, monkeypatch):
+    await _login_with_provider(client, db_session)
+    item = await client.post(
+        "/api/v1/information/manual",
+        json={
+            "text": "【虚构测试内容】材料称甲公司研究扩产，另提及贵州茅台（600519.SH）。",
+            "source_type": "analyst_opinion",
+        },
+    )
+    item_id = item.json()["data"]["id"]
+
+    async def fake_call(**kwargs):
+        from app.services.ai_gateway import AIChatResult
+
+        prompt = kwargs["messages"][1]["content"]
+        assert "Even when the source says the content is fictional" in prompt
+        assert "Fictional or test-labeled content is still meaningful content" in prompt
+        assert "Do not return empty facts/opinions/rumors" in prompt
+        assert "limitations should usually contain 3 to 6 concrete items" in prompt
+        assert "For exchange-qualified symbols like 600519.SH, put symbol as 600519" in prompt
+        assert "Concise output limits" in prompt
+        assert "Start the response with '{'" in prompt
+        assert prompt.index("UNTRUSTED_CONTENT_START") < prompt.index("JSON_SCHEMA")
+        return AIChatResult(
+            content=valid_analysis_json(stock_symbol="600519"),
+            http_status=200,
+            duration_ms=10,
+            input_tokens=10,
+            output_tokens=10,
+        )
+
+    monkeypatch.setattr("app.services.ai_gateway.call_openai_chat_completion", fake_call)
+    response = await client.post(f"/api/v1/information/{item_id}/analyze", json={})
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["latest_analysis"]["analysis_status"] == "succeeded"
+    assert data["stock_relations"][0]["relation_origin"] == "ai"
 
 
 async def test_analysis_double_invalid_marks_failed_but_content_remains(client: AsyncClient, db_session, monkeypatch):
