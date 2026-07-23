@@ -2,17 +2,26 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertCircle, ClipboardList, FileText, Layers3, MessageSquareWarning } from "lucide-react";
+import { AlertCircle, Bell, ClipboardList, FileText, Layers3, MessageSquareWarning } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AbnormalEventCard } from "@/components/market/AbnormalEventCard";
+import { MarketReviewSummary } from "@/components/market-review/MarketReviewSummary";
 import { InfoTimeline } from "@/components/information/InfoTimeline";
 import { ReviewSummaryCard } from "@/components/review/ReviewSummaryCard";
 import { DataStatusBar } from "@/components/status/DataStatusBar";
 import { EmptyState } from "@/components/status/EmptyState";
 import { SimulatedDataBadge } from "@/components/status/SimulatedDataBadge";
 import { StatusTag } from "@/components/status/StatusTag";
-import { formatPercent, observationStatusLabel, observationStatusTone, trendTone } from "@/lib/formatters";
+import {
+  formatPercent,
+  notificationSeverityLabel,
+  notificationSeverityTone,
+  notificationTypeLabel,
+  observationStatusLabel,
+  observationStatusTone,
+  trendTone
+} from "@/lib/formatters";
 import { useMockState } from "@/lib/mock-state";
 
 export default function TodayPage() {
@@ -69,6 +78,8 @@ export default function TodayPage() {
           </div>
         )}
       </section>
+
+      <MarketReviewSummary review={data.marketDailyReview} />
 
       <section id="abnormal" className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <SectionTitle
@@ -218,6 +229,49 @@ export default function TodayPage() {
             )}
           </div>
         </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <SectionTitle
+          icon={<Bell className="h-5 w-5 text-blue-700" />}
+          title="通知提醒"
+        />
+        {data.notifications.length === 0 ? (
+          <EmptyState title="暂无通知" description="新用户没有自选股时，站内通知保持空状态。" />
+        ) : (
+          <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+            <div className="grid gap-2 md:grid-cols-3">
+              {data.notifications.slice(0, 3).map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.targetHref}
+                  className="focus-ring rounded-md border border-slate-200 bg-slate-50 p-3 hover:bg-slate-100"
+                >
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                      {notificationTypeLabel(item.type)}
+                    </span>
+                    <span
+                      className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${notificationSeverityTone(
+                        item.severity
+                      )}`}
+                    >
+                      {notificationSeverityLabel(item.severity)}
+                    </span>
+                  </div>
+                  <p className="mt-2 line-clamp-1 text-sm font-semibold text-slate-950">{item.title}</p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">{item.summary}</p>
+                </Link>
+              ))}
+            </div>
+            <Link
+              href="/notifications"
+              className="focus-ring inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              查看全部通知
+            </Link>
+          </div>
+        )}
       </section>
     </div>
   );

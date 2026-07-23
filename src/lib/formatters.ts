@@ -1,8 +1,17 @@
 import type {
+  BoardStage,
+  CapabilityStatus,
   DataStatus,
+  MarketReviewStatus,
+  NotificationFrequency,
+  NotificationSeverity,
+  NotificationState,
+  NotificationType,
   ObservationStatus,
   SourceKind,
-  StockTradeStatus
+  StockTradeStatus,
+  ValuationAvailability,
+  ValuationConfidence
 } from "@/mock/types";
 
 export function formatPercent(value: number | null): string {
@@ -123,4 +132,126 @@ export function observationStatusTone(status: ObservationStatus): string {
   };
 
   return tones[status];
+}
+
+export function boardStageLabel(stage: BoardStage | "stock-observation"): string {
+  const labels: Record<BoardStage | "stock-observation", string> = {
+    "new-start": "新启动",
+    accelerating: "加速",
+    "sustained-strong": "持续强势",
+    "high-divergence": "高位分化",
+    retreat: "退潮",
+    repair: "修复",
+    "insufficient-data": "数据不足",
+    "stock-observation": "个股观察"
+  };
+
+  return labels[stage];
+}
+
+export function capabilityStatusLabel(status: CapabilityStatus): string {
+  const labels: Record<CapabilityStatus, string> = {
+    complete: "完整",
+    "partial-available": "部分可用",
+    "sample-calculation": "样本计算",
+    "provider-degraded": "数据源降级",
+    empty: "暂无数据"
+  };
+
+  return labels[status];
+}
+
+export function marketReviewStatusLabel(status: MarketReviewStatus): string {
+  const labels: Record<MarketReviewStatus, string> = {
+    complete: "完整复盘",
+    partial: "部分数据复盘",
+    "provider-degraded": "数据源降级",
+    "ai-summary-failed": "AI摘要失败",
+    failed: "复盘生成失败",
+    "not-generated": "尚未生成"
+  };
+
+  return labels[status];
+}
+
+export function notificationSeverityLabel(severity: NotificationSeverity): string {
+  const labels: Record<NotificationSeverity, string> = {
+    info: "普通",
+    notice: "提醒",
+    important: "重要",
+    critical: "严重"
+  };
+
+  return labels[severity];
+}
+
+export function notificationSeverityTone(severity: NotificationSeverity): string {
+  const tones: Record<NotificationSeverity, string> = {
+    info: "border-slate-200 bg-slate-50 text-slate-700",
+    notice: "border-blue-200 bg-blue-50 text-blue-800",
+    important: "border-amber-200 bg-amber-50 text-amber-800",
+    critical: "border-rose-200 bg-rose-50 text-rose-800"
+  };
+
+  return tones[severity];
+}
+
+export function notificationStateLabel(state: NotificationState): string {
+  const labels: Record<NotificationState, string> = {
+    unread: "未读",
+    read: "已读",
+    archived: "已归档",
+    expired: "已过期",
+    "data-source-degraded": "数据源降级",
+    "ai-summary-failed": "AI摘要失败",
+    "wechat-failed": "微信发送失败"
+  };
+
+  return labels[state];
+}
+
+export function notificationTypeLabel(type: NotificationType): string {
+  const labels: Record<NotificationType, string> = {
+    "daily-review": "每日复盘",
+    announcement: "公告资讯",
+    anomaly: "交易异动",
+    observation: "观察条件",
+    valuation: "估值",
+    system: "系统"
+  };
+
+  return labels[type];
+}
+
+export function notificationFrequencyLabel(frequency: NotificationFrequency): string {
+  const labels: Record<NotificationFrequency, string> = {
+    immediate: "立即",
+    "daily-digest": "每日摘要",
+    "weekly-digest": "每周摘要",
+    disabled: "关闭"
+  };
+
+  return labels[frequency];
+}
+
+export function valuationConfidenceLabel(confidence: ValuationConfidence): string {
+  const labels: Record<ValuationConfidence, string> = {
+    high: "高",
+    medium: "中",
+    low: "低",
+    unavailable: "不可用"
+  };
+
+  return labels[confidence];
+}
+
+export function valuationAvailabilityLabel(availability: ValuationAvailability): string {
+  const labels: Record<ValuationAvailability, string> = {
+    available: "可用",
+    partial: "部分可用",
+    unavailable: "不可估",
+    stale: "财务数据过期"
+  };
+
+  return labels[availability];
 }

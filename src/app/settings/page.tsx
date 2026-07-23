@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 
 import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
@@ -20,6 +21,7 @@ export default function SettingsPage() {
         "普通个人设置：时区、日期格式、数字展示偏好、默认首页视图、是否显示已退市股票、基础界面偏好",
         "AI接口配置：Base URL、API Key、模型名称、默认模型和备用模型",
         "模型任务配置：不同AI任务的模型偏好",
+        "通知设置：站内通知偏好与微信公众号Mock状态",
         "数据源状态：最后更新时间、当前同步状态、来源和失败提示",
         ...(role === "admin" ? ["管理员账户管理：管理员Mock身份可见入口"] : [])
       ]}
@@ -43,6 +45,15 @@ export default function SettingsPage() {
               <SimulatedDataBadge />
             </div>
           </div>
+          <Link
+            href="/settings/notifications"
+            className="focus-ring rounded-lg border border-slate-200 bg-white p-4 hover:bg-slate-50"
+          >
+            <p className="text-sm font-semibold text-slate-950">通知设置</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              查看站内通知偏好、微信公众号Mock状态和免打扰时间。
+            </p>
+          </Link>
         </div>
       }
     />

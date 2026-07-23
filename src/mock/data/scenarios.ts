@@ -1,4 +1,13 @@
 import { SCENARIOS } from "@/lib/constants";
+import {
+  getBusinessEvents,
+  getExternalIdentities,
+  getMarketDailyReview,
+  getNotificationDeliveries,
+  getNotificationPreferences,
+  getNotifications,
+  getValuationForStock
+} from "@/mock/data/fusion";
 import type {
   AbnormalEvent,
   BoardTag,
@@ -693,6 +702,112 @@ const baseStocks: Stock[] = [
     userNotes: ["模拟用户笔记：看后续是否有正式经营数据。"]
   },
   {
+    id: "gt-bank",
+    code: "SH601006",
+    name: "衡岳银行",
+    market: "上交所主板",
+    tradeStatus: "normal",
+    statusLabel: "正常交易",
+    personalGroups: ["稳健观察", "分红样本"],
+    standardIndustries: [board("银行", "standard-industry")],
+    conceptBoards: [board("高股息", "concept-board")],
+    dynamicThemes: [board("红利防御", "dynamic-theme")],
+    userTags: [{ label: "PB-ROE", kind: "user" }],
+    focusReason: "验证银行类股票是否需要使用PB-ROE而不是普通成长倍数。",
+    focusLogicChange: "关注逻辑以资产质量、分红稳定和相对指数强弱为主。",
+    marketSnapshot: market(1.62, {
+      open: 6.28,
+      high: 6.47,
+      low: 6.25,
+      close: 6.39,
+      amplitude: 3.5,
+      volume: "3.16亿股",
+      turnoverAmount: "20.2亿元",
+      turnoverRate: 1.18,
+      totalMarketCap: "2180亿元",
+      floatMarketCap: "1746亿元",
+      recentPerformance: "近5日 +4.5%，近20日 +6.0%",
+      relativeSectorStrength: "强于所属板块 +0.5pct",
+      relativeIndexStrength: "强于沪深300 +1.4pct"
+    }),
+    miniTrend: makeMiniTrend(5.96, [0.02, 0.05, 0.08, 0.1, 0.12, 0.18, 0.2, 0.24, 0.27, 0.31, 0.28, 0.33, 0.35, 0.38, 0.4, 0.42, 0.39, 0.44, 0.41, 0.43]),
+    chartSet: chartSet(6.29, [0.01, 0.04, 0.05, 0.08, 0.07, 0.09, 0.12, 0.1, 0.13, 0.16, 0.14, 0.17, 0.15, 0.12, 0.09, 0.1], 5.75, 0.008),
+    quantMetrics: quantMetrics({
+      p5: "+4.5%",
+      p10: "+5.2%",
+      p20: "+6.0%",
+      distanceHigh20: "-1.2%",
+      industryStrength: "+0.5%",
+      indexStrength: "+1.4%",
+      volumePercentile: 55,
+      amountPercentile: 63,
+      turnoverPercentile: 42,
+      amplitudePercentile: 36,
+      closePosition: 64,
+      maxDrawdown: "-2.1%"
+    }),
+    abnormalEvents: [],
+    infoTimeline: [],
+    sentimentItems: [],
+    todayReview: stockReview("衡岳银行"),
+    observations: [],
+    reviewHistory: [],
+    userNotes: ["模拟用户笔记：估值方法需要关注PB与ROE匹配，不直接看概念热度。"]
+  },
+  {
+    id: "gt-loss",
+    code: "SZ301007",
+    name: "未盈科技",
+    market: "深交所创业板",
+    tradeStatus: "normal",
+    statusLabel: "正常交易",
+    personalGroups: ["高风险观察"],
+    standardIndustries: [board("计算机", "standard-industry")],
+    conceptBoards: [board("AI应用", "concept-board")],
+    dynamicThemes: [board("亏损修复预期", "dynamic-theme")],
+    userTags: [{ label: "暂不可估", kind: "user" }],
+    focusReason: "验证亏损股在MVP中应展示不可估原因，而不是强行给出估值区间。",
+    focusLogicChange: "关注逻辑仍停留在收入质量和亏损收窄验证，不纳入估值结论。",
+    marketSnapshot: market(-1.84, {
+      open: 8.92,
+      high: 9.05,
+      low: 8.58,
+      close: 8.71,
+      amplitude: 5.3,
+      volume: "1860万股",
+      turnoverAmount: "1.6亿元",
+      turnoverRate: 5.62,
+      totalMarketCap: "74亿元",
+      floatMarketCap: "36亿元",
+      recentPerformance: "近5日 -6.4%，近20日 -11.8%",
+      relativeSectorStrength: "弱于所属板块 -2.7pct",
+      relativeIndexStrength: "弱于沪深300 -3.2pct"
+    }),
+    miniTrend: makeMiniTrend(9.9, [0.2, 0.08, -0.05, -0.18, -0.22, -0.35, -0.48, -0.5, -0.64, -0.8, -0.92, -1.0, -1.05, -1.12, -1.18, -1.22, -1.1, -1.26, -1.32, -1.19]),
+    chartSet: chartSet(8.87, [-0.02, 0.03, -0.08, -0.14, -0.11, -0.2, -0.26, -0.18, -0.3, -0.24, -0.18, -0.22, -0.28, -0.16, -0.13, -0.16], 9.6, -0.015),
+    quantMetrics: quantMetrics({
+      p5: "-6.4%",
+      p10: "-8.2%",
+      p20: "-11.8%",
+      distanceHigh20: "-15.6%",
+      industryStrength: "-2.7%",
+      indexStrength: "-3.2%",
+      volumePercentile: 49,
+      amountPercentile: 44,
+      turnoverPercentile: 66,
+      amplitudePercentile: 58,
+      closePosition: 28,
+      maxDrawdown: "-5.2%"
+    }),
+    abnormalEvents: [],
+    infoTimeline: [],
+    sentimentItems: [],
+    todayReview: stockReview("未盈科技"),
+    observations: [],
+    reviewHistory: [],
+    userNotes: ["模拟用户笔记：亏损样本只保留观察，不输出伪精确估值。"]
+  },
+  {
     id: "gt-suspend",
     code: "BJ830005",
     name: "停牌样本",
@@ -820,6 +935,17 @@ function cloneStocks(): Stock[] {
       dailyK: stock.chartSet.dailyK.map((item) => ({ ...item }))
     },
     quantMetrics: stock.quantMetrics.map((item) => ({ ...item })),
+    valuation: stock.valuation
+      ? {
+          ...stock.valuation,
+          scenarios: stock.valuation.scenarios.map((item) => ({
+            ...item,
+            assumptions: [...item.assumptions]
+          })),
+          assumptions: [...stock.valuation.assumptions],
+          missingInputs: [...stock.valuation.missingInputs]
+        }
+      : undefined,
     abnormalEvents: stock.abnormalEvents.map((event) => ({ ...event })),
     infoTimeline: stock.infoTimeline.map((item) => ({ ...item })),
     sentimentItems: stock.sentimentItems.map((item) => ({ ...item })),
@@ -832,7 +958,10 @@ function cloneStocks(): Stock[] {
 
 function createBaseData(scenarioId: ScenarioId): GeniusMockData {
   const scenario = SCENARIOS.find((item) => item.id === scenarioId) ?? SCENARIOS[0];
-  const stocks = cloneStocks();
+  const stocks = cloneStocks().map((stock) => ({
+    ...stock,
+    valuation: getValuationForStock(stock.id, scenarioId)
+  }));
 
   return {
     scenarioId,
@@ -844,11 +973,11 @@ function createBaseData(scenarioId: ScenarioId): GeniusMockData {
     sourceStatuses: baseSourceStatuses.map((status) => ({ ...status })),
     dashboardSummary: {
       total: stocks.length,
-      rising: 3,
-      falling: 1,
+      rising: 4,
+      falling: 2,
       suspended: 1,
       dataIssues: 0,
-      averageChange: 1.05
+      averageChange: 0.66
     },
     stocks,
     majorAbnormalEvents: abnormalEvents.map((event) => ({ ...event })),
@@ -858,7 +987,13 @@ function createBaseData(scenarioId: ScenarioId): GeniusMockData {
     pendingVerification: sentiments.filter((item) => item.verifyStatus !== "verified"),
     overallReview: { ...successfulOverallReview },
     pendingTasks: pendingTasks.map((task) => ({ ...task })),
-    observationsForToday: observations.map((item) => ({ ...item }))
+    observationsForToday: observations.map((item) => ({ ...item })),
+    marketDailyReview: getMarketDailyReview(scenarioId),
+    businessEvents: getBusinessEvents(scenarioId),
+    notifications: getNotifications(scenarioId),
+    notificationPreferences: getNotificationPreferences(scenarioId),
+    externalIdentities: getExternalIdentities(scenarioId),
+    notificationDeliveries: getNotificationDeliveries(scenarioId)
   };
 }
 

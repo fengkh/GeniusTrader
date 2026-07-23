@@ -24,6 +24,7 @@ import { ReviewSummaryCard } from "@/components/review/ReviewSummaryCard";
 import { EmptyState } from "@/components/status/EmptyState";
 import { SimulatedDataBadge } from "@/components/status/SimulatedDataBadge";
 import { StatusTag } from "@/components/status/StatusTag";
+import { ValuationCenter } from "@/components/valuation/ValuationCenter";
 import {
   formatNumber,
   formatPercent,
@@ -128,8 +129,10 @@ export default function StockDetailPage() {
 
       <QuantOverview metrics={stock.quantMetrics} />
 
+      <ValuationCenter stock={stock} />
+
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<Layers3 className="h-5 w-5 text-slate-700" />} title="4. 标准分类、系统建议和用户标签" />
+        <SectionTitle icon={<Layers3 className="h-5 w-5 text-slate-700" />} title="5. 标准分类、系统建议和用户标签" />
         <p className="mt-1 text-xs leading-5 text-slate-500">
           分类信息位于行情图表之后；标准板块、动态题材和用户标签分开展示，不混为同一字段。
         </p>
@@ -142,7 +145,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<BookOpenText className="h-5 w-5 text-emerald-700" />} title="5. 用户关注逻辑摘要" />
+        <SectionTitle icon={<BookOpenText className="h-5 w-5 text-emerald-700" />} title="6. 用户关注逻辑摘要" />
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold text-slate-500">用户关注原因</p>
@@ -156,7 +159,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<ClipboardCheck className="h-5 w-5 text-rose-700" />} title="6. 当日交易异动" />
+        <SectionTitle icon={<ClipboardCheck className="h-5 w-5 text-rose-700" />} title="7. 当日交易异动" />
         {stock.abnormalEvents.length === 0 ? (
           <div className="mt-4">
             <EmptyState title="暂无当日交易异动" description="没有触发当前Mock规则版本的异动事件。" />
@@ -171,14 +174,14 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<FileClock className="h-5 w-5 text-blue-700" />} title="7. 公告与资讯时间线" />
+        <SectionTitle icon={<FileClock className="h-5 w-5 text-blue-700" />} title="8. 公告与资讯时间线" />
         <div className="mt-4">
           <InfoTimeline items={stock.infoTimeline} />
         </div>
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<MessageSquare className="h-5 w-5 text-amber-700" />} title="8. 舆情内容和博主观点" />
+        <SectionTitle icon={<MessageSquare className="h-5 w-5 text-amber-700" />} title="9. 舆情内容和博主观点" />
         {stock.sentimentItems.length === 0 ? (
           <div className="mt-4">
             <EmptyState title="暂无舆情内容" description="用户录入链接或补充文本后会展示平台观点和待核实信息。" />
@@ -211,7 +214,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<ClipboardCheck className="h-5 w-5 text-blue-700" />} title="9. 当日复盘" />
+        <SectionTitle icon={<ClipboardCheck className="h-5 w-5 text-blue-700" />} title="10. 当日复盘" />
         <div className="mt-4">
           <ReviewSummaryCard review={stock.todayReview} />
         </div>
@@ -235,7 +238,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<ClipboardCheck className="h-5 w-5 text-slate-700" />} title="10. 昨日观察条件及今日验证状态" />
+        <SectionTitle icon={<ClipboardCheck className="h-5 w-5 text-slate-700" />} title="11. 昨日观察条件及今日验证状态" />
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {observations.map((item) => (
             <article key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -259,7 +262,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<FileClock className="h-5 w-5 text-slate-700" />} title="11. 历史复盘和修订版本摘要" />
+        <SectionTitle icon={<FileClock className="h-5 w-5 text-slate-700" />} title="12. 历史复盘和修订版本摘要" />
         {stock.reviewHistory.length === 0 ? (
           <div className="mt-4">
             <EmptyState title="暂无历史复盘" description="生成或手写复盘后会保留AI原始版本与人工修订版本。" />
@@ -283,7 +286,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<NotebookPen className="h-5 w-5 text-emerald-700" />} title="12. 用户笔记" />
+        <SectionTitle icon={<NotebookPen className="h-5 w-5 text-emerald-700" />} title="13. 用户笔记" />
         <div className="mt-4 space-y-3">
           {stock.userNotes.map((note) => (
             <p
