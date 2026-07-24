@@ -280,3 +280,16 @@ GeniusTrader 后端使用的数据库迁移工具。数据库结构变更必须�
 - 前端 API client：位于前端 `src/lib/api/` 的统一请求封装，负责 API Base URL、Cookie 凭证、CSRF 请求头、统一错误解析和未登录跳转。
 - 真实 API 联调页：当前阶段接入本地 FastAPI 后端的页面，包括 `/login`、`/information`、`/information/[itemId]` 和 `/settings/ai`。
 - Mock 保留页：当前阶段继续使用本地模拟数据的页面，包括今日、自选股、个股详情、全市场复盘、估值中心、微信公众号状态和微信消息预览；复盘历史、通知中心和站内通知设置已部分接真实 API。
+
+## 第五阶段数据源 Spike 术语补充
+
+- Announcement Provider：用于获取上市公司公告元数据和公告文档链接的候选来源适配器；技术可达不代表正式授权可用。
+- News Provider：用于发现或获取财经资讯、监管资讯或官方动态的候选来源适配器；MVP 当前不冻结自动资讯采集。
+- Provider Probe：隔离 Spike 中对某个来源能力的低频小样本验证，不写入正式业务数据库。
+- Provider Status：Provider 探测状态，包括 `PASS`、`PARTIAL`、`DATA_INSUFFICIENT`、`ACCESS_DENIED`、`RATE_LIMITED`、`TIMEOUT`、`NETWORK_ERROR`、`PARSE_ERROR`、`LEGAL_UNCLEAR` 和 `NOT_TESTED`。
+- Announcement Record：公告样本的规范化元数据，包括来源、来源内 ID、标题、发布时间、证券关系、文档 URL、哈希、去重键和字段完整度。
+- News Record：资讯样本的规范化元数据，包括来源、标题、发布时间或缺失原因、原始链接、正文抽取状态、相关实体、哈希、去重键和字段完整度。
+- Provider Cursor：增量同步游标，建议包含 Provider、能力类型、最后发布时间、最后来源 ID 和重叠窗口。
+- 技术候选来源：Spike 证明具备一定公开访问和字段覆盖能力的来源；仍需授权、留存、再展示和稳定性确认。
+- 正式数据供应商：经过产品负责人、技术和合规确认后可在 MVP 中接入的生产来源；当前公告与资讯供应商尚未冻结。
+- PDF 探测：仅验证公告文档是否可访问、是否为 PDF、页数、文本可抽取性和大小限制，不等于允许长期保存或再展示全文。

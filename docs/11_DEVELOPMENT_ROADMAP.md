@@ -306,3 +306,31 @@
 - `docs/19_DAILY_REVIEW_NOTIFICATION_ARCHITECTURE_DRAFT.md`。
 - 第四阶段数据库迁移、API、前端真实页面和验收测试。
 - 明确下一阶段仍需产品负责人确认的行情、估值、全市场复盘和外部通知问题。
+
+## 阶段 4D：官方公告与财经资讯数据源可行性 Spike
+
+前置条件：
+
+- 信息中心、AI 分析、用户每日复盘和站内通知真实闭环已经可用。
+- OQ-02 公告与资讯接入方案仍未关闭。
+- 本阶段仅做隔离 Spike，不进入生产 Provider、数据库迁移、调度任务或正式信息写入。
+
+目标：
+
+- 验证 CNINFO、交易所、监管机构和官方资讯页面的公开访问、字段覆盖、PDF、增量同步、去重和失败状态。
+- 区分技术可达、字段可用、授权/留存/再展示未确认三类结论。
+- 形成公告 Provider Adapter 的最小输入输出建议和后续开放问题。
+
+限制：
+
+- 不写入 `information_items`、`business_events`、`notifications` 或任何正式业务数据库。
+- 不创建生产服务、后台任务、队列、Docker、微信公众号、行情、估值或自动调度。
+- 不使用登录、Cookie、API Key、浏览器自动化、验证码绕过、代理或付费权限。
+- 不把任何候选来源写成正式供应商。
+
+输出：
+
+- `spikes/information-source-providers-feasibility/` 隔离 Spike 工具。
+- 被 Git 忽略的本地样本报告和指标输出。
+- `docs/20_INFORMATION_PROVIDER_FEASIBILITY_DRAFT.md`。
+- 是否进入正式公告 Provider Adapter 设计的产品负责人确认建议。

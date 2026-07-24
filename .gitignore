@@ -107,6 +107,23 @@ spikes/market-review-valuation/*.secret
 spikes/market-review-valuation/.env
 spikes/market-review-valuation/.env.*
 
+# Information source provider feasibility spike local artifacts
+.venv-information-source-spike/
+spikes/information-source-providers-feasibility/output/
+spikes/information-source-providers-feasibility/raw/
+spikes/information-source-providers-feasibility/cache/
+spikes/information-source-providers-feasibility/logs/
+spikes/information-source-providers-feasibility/temp/
+spikes/information-source-providers-feasibility/tmp/
+spikes/information-source-providers-feasibility/cookies/
+spikes/information-source-providers-feasibility/*.local.json
+spikes/information-source-providers-feasibility/*.token
+spikes/information-source-providers-feasibility/*.cookie
+spikes/information-source-providers-feasibility/*.key
+spikes/information-source-providers-feasibility/*.secret
+spikes/information-source-providers-feasibility/.env
+spikes/information-source-providers-feasibility/.env.*
+
 # IDE and editor
 .idea/
 .vscode/
