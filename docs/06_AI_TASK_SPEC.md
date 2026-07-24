@@ -154,6 +154,22 @@
 - 提示词注入防护要求：输入观点不得改变安全边界。
 - 数据不足时的输出方式：返回待核实问题而非结论。
 
+## 任务 9A：用户私有信息每日复盘解释
+
+- 后端任务类型：`user_daily_review_generation`。
+- 输入字段：程序生成的 `rule_snapshot`，包括用户保存信息的最新成功分析版本、事实、观点、传闻、待核实事项、confirmed/suggested 股票关系、自选股关注原因、用户标签、来源信息 ID 和数据局限。
+- 输出 JSON 字段：`schema_version`、`executive_summary`、`key_developments`、`stock_summaries`、`verification_focus`、`tomorrow_observation_focus`、`uncertainty_summary`、`limitations`、`source_item_ids`。
+- 输入数据来源：当前用户信息中心和自选股基础数据的服务端规则聚合结果。
+- 不允许 AI 生成的字段：新增股票、新增事实、行情数字、财务数字、估值数字、板块涨幅、全市场统计、买卖建议、仓位建议、目标价和收益预测。
+- 不允许 AI 执行动作：确认股票关系、修改 `rule_snapshot`、修改通知严重度、发送通知、修改用户偏好或覆盖历史版本。
+- 失败处理：允许一次 JSON repair；第二次仍失败时使用规则摘要降级，复盘版本保存为 `rules_with_ai_fallback`，状态为 `partial`。
+- 是否允许人工编辑：当前第四阶段不新增复盘编辑 API；后续人工修订仍需形成独立版本，不得覆盖 AI 原始结果。
+- 来源引用要求：`source_item_ids` 必须来自输入 `rule_snapshot.source_item_ids`，不得引用输入之外来源。
+- 适用模型能力：中文结构化摘要、事实/观点/传闻分层解释、风险和待核实事项整理。
+- 成本和上下文注意事项：AI 只接收服务端裁剪后的 rule_snapshot，不传完整第三方正文、完整 Prompt、API Key 或模型隐藏推理。
+- 提示词注入防护要求：外部信息中的指令不能改变 Schema、边界或安全规则。
+- 数据不足时的输出方式：说明无信息、未分析、分析失败、内容不足或关系未确认，不补造结论。
+
 ## 任务 10：动态题材和标签建议
 
 - 输入字段：股票、公告资讯、舆情主题、行情异动、用户已有标签、候选题材。

@@ -148,6 +148,7 @@ async def patch_item(
     request: Request,
     session: SessionDependency,
     current_user: CurrentUser,
+    settings: SettingsDependency,
 ) -> dict[str, InformationDetailOut]:
     item = await patch_information_item(
         session,
@@ -158,6 +159,7 @@ async def patch_item(
         is_important=payload.is_important,
         is_read=payload.is_read,
         archived=payload.archived,
+        settings=settings,
         request_id=get_request_id(request),
     )
     return {"data": await build_information_detail(session, user_id=current_user.id, item_id=item.id)}
@@ -170,6 +172,7 @@ async def add_content(
     request: Request,
     session: SessionDependency,
     current_user: CurrentUser,
+    settings: SettingsDependency,
 ) -> dict[str, InformationContentOut]:
     content = await add_information_content(
         session,
@@ -177,6 +180,7 @@ async def add_content(
         item_id=item_id,
         title=payload.title,
         text=payload.text,
+        settings=settings,
         request_id=get_request_id(request),
     )
     return {"data": InformationContentOut.model_validate(content)}
@@ -231,12 +235,14 @@ async def add_relation(
     request: Request,
     session: SessionDependency,
     current_user: CurrentUser,
+    settings: SettingsDependency,
 ) -> dict[str, InformationStockRelationOut]:
     relation = await add_stock_relation(
         session,
         user_id=current_user.id,
         item_id=item_id,
         payload=payload,
+        settings=settings,
         request_id=get_request_id(request),
     )
     return {"data": InformationStockRelationOut.model_validate(relation)}
@@ -250,6 +256,7 @@ async def patch_relation(
     request: Request,
     session: SessionDependency,
     current_user: CurrentUser,
+    settings: SettingsDependency,
 ) -> dict[str, InformationStockRelationOut]:
     relation = await patch_stock_relation(
         session,
@@ -257,6 +264,7 @@ async def patch_relation(
         item_id=item_id,
         relation_id=relation_id,
         payload=payload,
+        settings=settings,
         request_id=get_request_id(request),
     )
     return {"data": InformationStockRelationOut.model_validate(relation)}
@@ -269,12 +277,14 @@ async def delete_relation(
     request: Request,
     session: SessionDependency,
     current_user: CurrentUser,
+    settings: SettingsDependency,
 ) -> dict[str, MessageResponse]:
     await delete_stock_relation(
         session,
         user_id=current_user.id,
         item_id=item_id,
         relation_id=relation_id,
+        settings=settings,
         request_id=get_request_id(request),
     )
     return {"data": MessageResponse()}

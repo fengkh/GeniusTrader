@@ -1,6 +1,6 @@
 # 前端信息中心联调草案
 
-本文记录 GeniusTrader 第三阶段“用户认证、AI 配置与信息中心前端真实 API 联调”的实现边界。
+本文记录 GeniusTrader 第三阶段“用户认证、AI 配置与信息中心前端真实 API 联调”的实现边界，并在末尾补充第四阶段前端真实 API 扩展。
 
 ## 范围
 
@@ -13,8 +13,8 @@
 ## 明确不包含
 
 - 不接入真实行情、真实公告资讯 Provider、真实数据库以外的数据源或真实前端权限系统。
-- 不开发每日复盘、全市场复盘、估值、通知真实业务、微信公众号或外部推送。
-- `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、`/reviews`、`/notifications` 和 `/settings/notifications` 继续保持 Mock。
+- 第三阶段不开发每日复盘、全市场复盘、估值、通知真实业务、微信公众号或外部推送。
+- 第三阶段 `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、`/reviews`、`/notifications` 和 `/settings/notifications` 继续保持 Mock；第四阶段已将其中 `/reviews`、`/reviews/[reviewId]`、`/notifications` 和站内通知设置切换为真实 API。
 
 ## 安全边界
 
@@ -37,3 +37,12 @@
 - 根目录 `.env.local` 使用 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000`。
 - `.local/app.env` 存放本地 `APP_ENCRYPTION_KEYS`，不得提交。
 - 可提交的 `.env.example` 只包含非敏感公开配置示例。
+
+## 第四阶段前端扩展
+
+- `/reviews` 消费真实复盘列表和生成 API，支持日期筛选、状态筛选、生成今日或历史 `review_date` 复盘。
+- `/reviews/[reviewId]` 消费真实复盘详情、重新生成和版本数据，分层展示程序聚合、AI 解释、来源追溯、股票分组、未归属信息、数据局限和历史版本。
+- `/notifications` 消费真实站内通知列表、未读数、标记已读/未读、归档和批量已读 API，通知点击跳转 deep_link。
+- `/settings/notifications` 的站内通知偏好消费真实 API；微信公众号区域继续显示“尚未接入”，不创建 OAuth、OpenID、二维码、模板消息或微信 API 调用。
+- 顶部通知铃铛登录后读取真实 `/notifications/unread-count`；未登录不请求。
+- `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心和微信消息预览仍保持 Mock。

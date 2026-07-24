@@ -1,6 +1,6 @@
 # 后端架构草案
 
-本文记录 GeniusTrader 正式后端第一阶段的工程边界。当前阶段只实现账户认证、自选股基础闭环、股票基础目录、数据库迁移、日志和审计基础，不实现真实行情、公告资讯、AI Gateway、估值、复盘生成、通知编排、微信或 Docker。
+本文记录 GeniusTrader 正式后端工程边界。第一阶段实现账户认证、自选股基础闭环、股票基础目录、数据库迁移、日志和审计基础；第二阶段补充受控信息采集、AI Provider、AI Gateway 和结构化信息分析；第四阶段补充用户每日复盘、业务事件和站内通知。当前仍不实现真实行情 Provider、真实公告资讯 Provider、估值后端、全市场真实复盘、自动调度、任务队列、微信或 Docker。
 
 ## 架构边界
 
@@ -110,21 +110,20 @@ Repository 查询不得先按资源 ID 查出记录后再在 Python 判断归属
 
 集成测试优先使用独立数据库 `geniustrader_test`。测试启动前检查数据库名必须以 `_test` 结尾，破坏性清理只作用于测试库。当前项目角色没有创建数据库权限时，不提升权限，不回退清空开发库。
 
-2026-07-23 收尾验收中，`geniustrader_test` 已创建并由 `root` 拥有。完整 pytest 已在测试库实际运行，结果为 `30 passed, 0 failed, 0 skipped`。迁移回滚验证只在 `geniustrader_test` 执行：先降级到 base，确认本阶段业务表移除，再重新升级到 `202607230001 (head)` 并确认核心表恢复。开发库 `geniustrader` 未执行回滚、清表或测试夹具。
+2026-07-23 收尾验收中，`geniustrader_test` 已创建并由 `root` 拥有。第一阶段完整 pytest 结果为 `30 passed, 0 failed, 0 skipped`；第四阶段开发中完整 pytest 结果为 `55 passed, 0 failed, 0 skipped`。迁移回滚验证只在 `geniustrader_test` 执行；开发库 `geniustrader` 不执行回滚、清表或测试夹具。
 
-## 后续接入方式
+## 后续接入方式与已落地补充
 
-- AI Gateway：未来作为独立服务层接入，复用当前用户认证、用户隔离、错误格式、请求 ID 和审计规范；不得让前端接触用户 API Key。
-- 信息中心：未来公告、资讯和舆情实体应复用 `user_id` 隔离和来源追踪规则。
-- BusinessEvent 与 Notification：未来通知编排消费结构化业务事件，不由复盘、估值或公告模块直接调用外部通道。
+- AI Gateway：第二阶段已作为后端服务层接入，复用当前用户认证、用户隔离、错误格式、请求 ID 和审计规范；不得让前端接触用户 API Key。
+- 信息中心：第二阶段已实现用户手动文本、单 URL 受控抓取、内容版本、AI 分析版本和股票关系；未来真实公告资讯 Provider 仍需独立接入。
+- BusinessEvent 与 Notification：第四阶段已实现用户每日复盘和信息中心相关业务事件到站内通知；未来外部通道仍必须通过通知编排器和通道适配器。
 - Provider Adapter：未来行情、公告、财务和板块 Provider 通过适配层接入；候选 Provider 未确认前不得硬编码为最终方案。
 
 ## 当前未实现能力
 
 - 真实行情 Provider、K线、分时和量化指标入库。
-- 公告资讯真实接入和信息中心业务 API。
-- AI Gateway、AI 配置加密保存、AI 调用和复盘生成。
-- 全市场复盘、估值、通知编排和外部通知通道。
+- 公告资讯真实 Provider 接入。
+- 全市场真实复盘、估值和外部通知通道。
 - 微信公众号绑定、OAuth、模板消息或 API 调用。
 - Docker、生产部署、邮件找回密码、公开注册和支付。
 
@@ -142,14 +141,14 @@ Repository 查询不得先按资源 ID 查出记录后再在 Python 判断归属
 - 测试结果：`30 passed, 0 failed, 0 skipped`。
 - 测试库和开发库隔离：测试清理、迁移回滚和重新升级仅作用于 `geniustrader_test`。
 - Windows 启动方式：继续优先使用 `python -m app.cli.run_dev`。
-- 范围边界：仍未实现真实行情、公告资讯、AI Gateway、估值、复盘、通知编排、微信和 Docker。
+- 范围边界：仍未实现真实行情 Provider、真实公告资讯 Provider、估值、全市场真实复盘、自动调度、任务队列、微信和 Docker；AI Gateway、信息中心、用户每日复盘和站内通知已由后续阶段补充。
 ## 后端第二阶段补充：信息采集与 AI Gateway
 
 - 新增 `ai_provider_configs`、`ai_tasks`、`ai_task_attempts`、`information_items`、`information_sources`、`information_contents`、`content_fetch_attempts`、`information_analysis_versions`、`information_stock_relations`、`information_entity_mentions`、`verification_items`。
 - 路由新增 `/api/v1/ai/providers` 和 `/api/v1/information`，继续使用既有 cookie session、`DataEnvelope`、`AppError` 和 `X-Request-ID`。
 - 服务层新增 AI Provider 管理、受控 URL 抓取、HTML 正文提取、AI Gateway 和信息分析编排；当前同步执行，未来可迁移到任务队列。
 - 安全边界：AI API Key Fernet/MultiFernet 加密；URL 抓取执行 SSRF 校验；AI Prompt 对第三方文本设置不可信边界；日志和审计元数据脱敏。
-- 当前不新增 Redis、Celery、Kafka、Docker、浏览器自动化、全站爬虫、真实行情接入、每日复盘生成或通知业务。
+- 当前不新增 Redis、Celery、Kafka、Docker、浏览器自动化、全站爬虫、真实行情接入、全市场复盘、估值或外部通知业务。
 
 ## 第三阶段补充：浏览器 CSRF 与前端联调
 
@@ -158,4 +157,36 @@ Repository 查询不得先按资源 ID 查出记录后再在 Python 判断归属
 - `POST`、`PUT`、`PATCH` 和 `DELETE` 写请求必须携带 `X-CSRF-Token`，并与 CSRF Cookie 及数据库哈希匹配。
 - `GET`、`HEAD`、`OPTIONS` 不要求 CSRF；`POST /api/v1/auth/login` 不要求已有 CSRF，但校验请求 `Origin` 是否在 CORS 允许列表内。
 - `POST /api/v1/auth/logout` 吊销 Session，并清理 Session Cookie 和 CSRF Cookie。
-- 本阶段前端真实消费 `/api/v1/auth`、`/api/v1/ai/providers`、`/api/v1/information` 和 `/api/v1/stocks`；其他页面仍保持 Mock，不代表行情、复盘、估值或通知后端已经接入。
+- 当前前端真实消费 `/api/v1/auth`、`/api/v1/ai/providers`、`/api/v1/information`、`/api/v1/stocks`、`/api/v1/reviews`、`/api/v1/notifications` 和 `/api/v1/notification-preferences`；今日、自选股、个股详情、全市场复盘、估值和微信区域仍保持 Mock。
+
+## 第四阶段后端补充
+
+新增迁移 `202607230004_create_daily_reviews_and_notifications.py` 创建：
+
+- `daily_reviews`
+- `daily_review_versions`
+- `daily_review_items`
+- `business_events`
+- `notifications`
+- `notification_preferences`
+- `notification_deliveries`
+
+新增 API：
+
+- `/api/v1/reviews`
+- `/api/v1/reviews/{review_id}`
+- `/api/v1/reviews/{review_id}/regenerate`
+- `/api/v1/reviews/{review_id}/versions`
+- `/api/v1/notifications`
+- `/api/v1/notifications/unread-count`
+- `/api/v1/notifications/mark-all-read`
+- `/api/v1/notification-preferences`
+
+关键规则：
+
+- `review_date` 使用 `Asia/Shanghai` 业务日期，优先使用来源发布时间。
+- 每个用户每天一个 `daily_review` 聚合实体，force 重新生成只增加版本。
+- `rule_snapshot` 由程序生成，AI 只解释，不得覆盖规则结果。
+- `input_fingerprint` 用于幂等和 stale 检测。
+- BusinessEvent 和 Notification 均按当前用户隔离。
+- 当前真实通知通道只有 `in_app`，没有后台调度或外部推送。

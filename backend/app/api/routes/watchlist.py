@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.dependencies import CurrentUser, SessionDependency, get_request_id
+from app.api.dependencies import CurrentUser, SessionDependency, SettingsDependency, get_request_id
 from app.core.errors import AppError, ErrorCode
 from app.models.tag import UserTag
 from app.models.watchlist import UserWatchlistItem, WatchlistGroup
@@ -289,6 +289,7 @@ async def add_watchlist_item(
     request: Request,
     session: SessionDependency,
     current_user: CurrentUser,
+    settings: SettingsDependency,
 ) -> dict[str, WatchlistItemRead]:
     item = await create_watchlist_item(
         session,
@@ -298,6 +299,7 @@ async def add_watchlist_item(
         attention_reason=payload.attention_reason,
         notes=payload.notes,
         tag_ids=payload.tag_ids,
+        settings=settings,
         request_id=get_request_id(request),
     )
     return {"data": WatchlistItemRead.model_validate(item)}
@@ -320,6 +322,7 @@ async def patch_watchlist_item(
     request: Request,
     session: SessionDependency,
     current_user: CurrentUser,
+    settings: SettingsDependency,
 ) -> dict[str, WatchlistItemRead]:
     item = await update_watchlist_item(
         session,
@@ -330,6 +333,7 @@ async def patch_watchlist_item(
         notes=payload.notes,
         sort_order=payload.sort_order,
         tag_ids=payload.tag_ids,
+        settings=settings,
         request_id=get_request_id(request),
     )
     return {"data": WatchlistItemRead.model_validate(item)}
@@ -342,11 +346,13 @@ async def delete_watchlist_item(
     response: Response,
     session: SessionDependency,
     current_user: CurrentUser,
+    settings: SettingsDependency,
 ) -> Response:
     await archive_watchlist_item(
         session,
         user_id=current_user.id,
         item_id=item_id,
+        settings=settings,
         request_id=get_request_id(request),
     )
     response.status_code = status.HTTP_204_NO_CONTENT

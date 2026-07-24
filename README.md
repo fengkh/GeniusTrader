@@ -2,7 +2,7 @@
 
 GeniusTrader 是一套面向 A 股个人研究场景的自选股复盘与多源舆情管理平台。第一版聚焦“A 股自选股复盘闭环”，帮助用户管理自选股、追踪行情与公告资讯、整理舆情线索，并使用用户自带的 AI API 生成可追溯的每日复盘。
 
-当前仓库已进入分阶段实现：Mock 前端原型、FastAPI 后端基础工程、受控信息采集与 AI Gateway 后端已建立；当前阶段正在进行 `/login`、`/information`、`/information/[itemId]` 和 `/settings/ai` 的前端真实 API 联调。
+当前仓库已进入分阶段实现：Mock 前端原型、FastAPI 后端基础工程、受控信息采集与 AI Gateway、信息中心前端真实 API 联调已建立；当前阶段正在实现“用户私有信息每日复盘、BusinessEvent 与站内通知真实闭环”。`/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分已切换到本地后端 API。
 
 ## 明确边界
 
@@ -31,10 +31,11 @@ GeniusTrader 是一套面向 A 股个人研究场景的自选股复盘与多源�
 - `docs/16_BACKEND_ARCHITECTURE_DRAFT.md`：后端架构草案。
 - `docs/17_INFORMATION_AI_ARCHITECTURE_DRAFT.md`：受控信息采集与 AI 分析架构草案。
 - `docs/18_FRONTEND_INFORMATION_INTEGRATION_DRAFT.md`：信息中心前端真实 API 联调草案。
+- `docs/19_DAILY_REVIEW_NOTIFICATION_ARCHITECTURE_DRAFT.md`：用户每日复盘与站内通知架构草案。
 
 ## 当前状态
 
-当前已存在 Next.js Mock 前端与 FastAPI 后端工程。仍保持以下边界：行情、复盘、估值、通知真实业务和数据 Provider 尚未接入；未确认的数据供应商不得写死；不得提交真实 API Key、数据库密码、Cookie、Token、AI Key 或 `APP_ENCRYPTION_KEYS`。
+当前已存在 Next.js 前端与 FastAPI 后端工程。认证、AI Provider、信息中心、用户每日复盘和站内通知走本地真实 API；今日、自选股、个股详情、全市场复盘、估值中心和微信公众号区域仍保持 Mock 或未来边界。真实行情、估值、全市场复盘、外部通知和数据 Provider 尚未接入；未确认的数据供应商不得写死；不得提交真实 API Key、数据库密码、Cookie、Token、AI Key 或 `APP_ENCRYPTION_KEYS`。
 
 前端本地联调使用根目录 `.env.local` 中的：
 
@@ -50,4 +51,8 @@ The backend second phase adds controlled information intake, encrypted user AI P
 
 ## Frontend Phase 3 Scope Note
 
-The third frontend integration phase connects authentication, AI Provider settings, and the information center to the local FastAPI backend. `/today`, `/watchlist`, stock detail, market review, reviews, notifications, and notification settings remain Mock pages in this phase.
+The third frontend integration phase connects authentication, AI Provider settings, and the information center to the local FastAPI backend.
+
+## Fullstack Phase 4 Scope Note
+
+The fourth phase adds user-private daily reviews, review versions, BusinessEvent records, real in-app notifications, notification preferences, and frontend integration for `/reviews`, `/reviews/[reviewId]`, `/notifications`, and the in-app section of `/settings/notifications`. It still does not add real market data providers, full-market review backend, valuation backend, schedulers, task queues, WeChat, email, Web Push, or mobile Push.

@@ -4,6 +4,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.core.errors import AppError, ErrorCode
 from app.core.time import utc_now
 from app.models.tag import UserTag, WatchlistItemTag
@@ -98,8 +99,12 @@ async def create_watchlist_item(
     attention_reason: str | None,
     notes: str | None,
     tag_ids: list[uuid.UUID],
+    settings: Settings,
     request_id: str | None,
 ) -> UserWatchlistItem:
+    del settings
+    from app.services.daily_reviews import mark_all_reviews_stale_for_user
+
     stock = await get_stock_by_id(session, stock_id)
     if not stock:
         raise AppError(ErrorCode.STOCK_NOT_FOUND, "股票不存在", status_code=404)
@@ -129,6 +134,12 @@ async def create_watchlist_item(
             target_type="watchlist_item",
             target_id=archived.id,
             result="success",
+            request_id=request_id,
+        )
+        await mark_all_reviews_stale_for_user(
+            session,
+            user_id=user_id,
+            reason="watchlist_restored",
             request_id=request_id,
         )
         await session.commit()
@@ -163,6 +174,12 @@ async def create_watchlist_item(
         target_type="watchlist_item",
         target_id=item.id,
         result="success",
+        request_id=request_id,
+    )
+    await mark_all_reviews_stale_for_user(
+        session,
+        user_id=user_id,
+        reason="watchlist_created",
         request_id=request_id,
     )
     await session.commit()
@@ -206,8 +223,12 @@ async def update_watchlist_item(
     notes: str | None = None,
     sort_order: int | None = None,
     tag_ids: list[uuid.UUID] | None = None,
+    settings: Settings | None = None,
     request_id: str | None,
 ) -> UserWatchlistItem:
+    del settings
+    from app.services.daily_reviews import mark_all_reviews_stale_for_user
+
     item = await get_item_or_404(session, user_id=user_id, item_id=item_id)
     if item.archived_at:
         raise AppError(ErrorCode.WATCHLIST_ITEM_NOT_FOUND, "自选股记录不存在", status_code=404)
@@ -232,6 +253,12 @@ async def update_watchlist_item(
         result="success",
         request_id=request_id,
     )
+    await mark_all_reviews_stale_for_user(
+        session,
+        user_id=user_id,
+        reason="watchlist_updated",
+        request_id=request_id,
+    )
     await session.commit()
     return await get_item_or_404(session, user_id=user_id, item_id=item.id)
 
@@ -241,8 +268,12 @@ async def archive_watchlist_item(
     *,
     user_id: uuid.UUID,
     item_id: uuid.UUID,
+    settings: Settings,
     request_id: str | None,
 ) -> None:
+    del settings
+    from app.services.daily_reviews import mark_all_reviews_stale_for_user
+
     item = await get_item_for_user(session, user_id=user_id, item_id=item_id, include_archived=True)
     if not item:
         raise AppError(
@@ -259,6 +290,12 @@ async def archive_watchlist_item(
             target_type="watchlist_item",
             target_id=item.id,
             result="success",
+            request_id=request_id,
+        )
+        await mark_all_reviews_stale_for_user(
+            session,
+            user_id=user_id,
+            reason="watchlist_archived",
             request_id=request_id,
         )
         await session.commit()

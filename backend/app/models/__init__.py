@@ -11,6 +11,15 @@ from app.models.information import (
     InformationStockRelation,
     VerificationItem,
 )
+from app.models.review_notification import (
+    BusinessEvent,
+    DailyReview,
+    DailyReviewItem,
+    DailyReviewVersion,
+    Notification,
+    NotificationDelivery,
+    NotificationPreference,
+)
 from app.models.session import UserSession
 from app.models.stock import Stock
 from app.models.tag import UserTag, WatchlistItemTag
@@ -23,13 +32,20 @@ __all__ = [
     "AITask",
     "AITaskAttempt",
     "Base",
+    "BusinessEvent",
     "ContentFetchAttempt",
+    "DailyReview",
+    "DailyReviewItem",
+    "DailyReviewVersion",
     "InformationAnalysisVersion",
     "InformationContent",
     "InformationEntityMention",
     "InformationItem",
     "InformationSource",
     "InformationStockRelation",
+    "Notification",
+    "NotificationDelivery",
+    "NotificationPreference",
     "Stock",
     "User",
     "UserCredential",

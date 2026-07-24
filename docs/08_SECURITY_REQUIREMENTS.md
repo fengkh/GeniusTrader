@@ -101,3 +101,16 @@ GeniusTrader 当前 GitHub 仓库按公开仓库处理，所有文档、配置�
 - 前端 API client 必须使用 `credentials: "include"`，并解析统一错误中的 `request_id` 供排障使用。
 - AI Provider 页面不得展示完整 API Key；Key 输入框提交后必须清空；前端不得直接调用用户配置的第三方 AI Base URL。
 - 外部链接展示必须使用普通链接并设置 `target="_blank"` 与 `rel="noreferrer"`；抓取正文和用户补充文本按纯文本展示，不使用 `dangerouslySetInnerHTML`。
+
+## 第四阶段复盘与站内通知安全补充
+
+- 用户每日复盘、复盘版本、纳入信息、业务事件、通知、通知偏好和投递记录必须全部按当前 `user_id` 隔离。
+- 管理员通过普通用户接口也不得读取其他用户私人复盘、通知或偏好。
+- `rule_snapshot` 是业务数据，可保存结构化事实、观点、传闻和来源 ID，但不得保存 API Key、Session Token、Cookie、数据库密码或完整第三方认证 Header。
+- AI 任务 `user_daily_review_generation` 只接收服务端裁剪后的 `rule_snapshot`，不直接发送完整第三方网页正文、完整 Prompt、API Key 或隐藏推理。
+- AI 失败时保存规则复盘降级结果，不把上游完整错误、堆栈、SQL 或密钥返回客户端。
+- BusinessEvent payload 只保存生成通知所需的最小字段，不保存完整私人正文。
+- 通知标题、摘要和 deep_link 不得包含完整信息正文、用户敏感参数、Token、OpenID、API Key 或可复用凭证。
+- 当前真实通知通道仅 `in_app`；微信公众号、邮件、Web Push 和移动 Push 不得被前端或后端误调用。
+- `daily_digest` 当前只影响是否创建单条即时站内通知，不代表已实现定时摘要发送。
+- 自动测试必须 Mock AI，不得调用用户真实 Provider。

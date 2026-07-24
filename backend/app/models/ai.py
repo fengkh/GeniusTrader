@@ -59,7 +59,8 @@ class AITask(UuidPrimaryKeyMixin, Base):
     __tablename__ = "ai_tasks"
     __table_args__ = (
         CheckConstraint(
-            "task_type IN ('provider_connection_test', 'information_sentiment_analysis')",
+            "task_type IN ('provider_connection_test', 'information_sentiment_analysis', "
+            "'user_daily_review_generation')",
             name="ai_tasks_task_type_allowed",
         ),
         CheckConstraint(

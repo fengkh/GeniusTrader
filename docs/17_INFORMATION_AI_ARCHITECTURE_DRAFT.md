@@ -93,3 +93,12 @@ AI 分析输入必须把第三方内容放入明确的不可信内容边界内�
 - `/information/[itemId]` 分层展示来源记录、当前正文版本、AI 分析版本、股票关联、实体提及和待核实事项。
 - 股票关联中，AI 生成关系默认为 `suggested`，页面必须提供确认和拒绝操作；用户手动新增关系默认为 `confirmed`。
 - 前端不得把结构化分析展示为原始事实，也不得用 AI 输出覆盖来源、正文、发布时间、股票基础字段或行情数字。
+
+## 第四阶段复盘与通知接入
+
+- 信息中心新增、补充正文、归档、取消归档、股票关系变化或产生新成功分析版本后，相关业务日期的用户每日复盘需要标记为 `stale`，但不自动覆盖旧版本。
+- 用户将与自选股 confirmed 关联的信息标记为重要时，创建 `information.high_priority_detected` BusinessEvent，并通过通知编排器生成站内通知。
+- 最新成功分析中存在 pending 高优先级待核实事项且信息 confirmed 关联自选股时，创建 `information.verification_required` BusinessEvent；默认 `daily_digest`，不创建单条即时站内通知。
+- 信息 AI 分析最终失败时，创建 `ai_task.failed` BusinessEvent 和站内通知，原信息、正文、人工关联和历史失败版本仍保留。
+- AI 建议股票关系仍只能是 `suggested`，不得因为复盘或通知流程自动确认。
+- AI 输出的风险级别只作为分析字段展示，不得直接映射为系统通知 severity。

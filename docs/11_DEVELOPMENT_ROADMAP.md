@@ -279,3 +279,30 @@
 - 不接入真实行情、真实公告资讯 Provider、真实复盘生成、全市场复盘后端、估值后端、通知真实业务、微信公众号或外部推送。
 - 不把候选数据 Provider 写成最终方案。
 - 不在前端保存 Session Token、密码、AI Key 或完整第三方正文日志。
+
+## 阶段 4C：用户每日复盘、业务事件与站内通知真实闭环
+
+前置条件：
+
+- 后端第二阶段信息采集和 AI 结构化分析闭环可用。
+- 第三阶段前端登录、AI Provider 和信息中心真实 API 联调可用。
+- 全市场复盘、估值、行情 Provider 和外部通知通道仍保持开放。
+
+目标：
+
+- 创建 `daily_reviews`、`daily_review_versions`、`daily_review_items`、`business_events`、`notifications`、`notification_preferences` 和 `notification_deliveries`。
+- 实现用户私有信息每日复盘 API、版本、input_fingerprint 幂等和 stale 检测。
+- 实现 BusinessEvent 到真实站内 Notification 的编排。
+- `/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分接入真实 API。
+
+限制：
+
+- 不接入真实行情 Provider、全市场真实复盘、估值后端、自动调度、任务队列、微信公众号、邮件、Web Push、移动 Push 或 Docker。
+- `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心和微信公众号区域继续保持 Mock。
+- 自动测试必须 Mock AI，不调用用户真实 Provider。
+
+输出：
+
+- `docs/19_DAILY_REVIEW_NOTIFICATION_ARCHITECTURE_DRAFT.md`。
+- 第四阶段数据库迁移、API、前端真实页面和验收测试。
+- 明确下一阶段仍需产品负责人确认的行情、估值、全市场复盘和外部通知问题。

@@ -185,3 +185,119 @@ export interface StockRead {
   created_at: string;
   updated_at: string;
 }
+
+export type DailyReviewStatus = "complete" | "partial" | "empty" | "failed" | "stale";
+export type DailyReviewGenerationMode =
+  | "rules_only"
+  | "rules_and_ai"
+  | "rules_with_ai_fallback";
+
+export interface DailyReviewVersion {
+  id: UUID;
+  daily_review_id: UUID;
+  version_number: number;
+  status: DailyReviewStatus;
+  generation_mode: DailyReviewGenerationMode;
+  ai_task_id: UUID | null;
+  rule_snapshot: Record<string, unknown>;
+  ai_structured_result: Record<string, unknown> | null;
+  ai_narrative: string | null;
+  input_fingerprint: string;
+  prompt_version: string | null;
+  schema_version: string;
+  provider_config_id: UUID | null;
+  model_name: string | null;
+  generated_at: string;
+  created_at: string;
+}
+
+export interface DailyReviewSummary {
+  id: UUID;
+  user_id: UUID;
+  review_date: string;
+  status: DailyReviewStatus;
+  current_version_id: UUID | null;
+  current_version_number: number | null;
+  generation_mode: DailyReviewGenerationMode | null;
+  input_fingerprint: string | null;
+  generated_at: string | null;
+  stale_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  overview: Record<string, unknown>;
+  ai_available: boolean;
+}
+
+export interface DailyReviewDetail extends DailyReviewSummary {
+  current_version: DailyReviewVersion | null;
+  versions: DailyReviewVersion[];
+}
+
+export interface DailyReviewGeneratePayload {
+  review_date?: string | null;
+  force?: boolean;
+  use_ai?: boolean;
+}
+
+export type NotificationEventType =
+  | "user_daily_review.generated"
+  | "user_daily_review.partial"
+  | "user_daily_review.failed"
+  | "user_daily_review.became_stale"
+  | "information.high_priority_detected"
+  | "information.verification_required"
+  | "ai_task.failed";
+
+export type InAppNotificationSeverity = "info" | "notice" | "important";
+export type InAppNotificationStatus = "unread" | "read" | "archived" | "expired";
+export type NotificationAction = "mark_read" | "mark_unread" | "archive" | "unarchive";
+export type NotificationFrequency = "immediate" | "daily_digest" | "disabled";
+
+export interface InAppNotification {
+  id: UUID;
+  user_id: UUID;
+  event_id: UUID;
+  event_type: NotificationEventType;
+  title: string;
+  summary: string;
+  severity: InAppNotificationSeverity;
+  target_type: string;
+  target_id: UUID;
+  deep_link: string;
+  status: InAppNotificationStatus;
+  created_at: string;
+  updated_at: string;
+  read_at: string | null;
+  archived_at: string | null;
+  expires_at: string | null;
+}
+
+export interface NotificationUnreadCount {
+  unread_count: number;
+}
+
+export interface NotificationPreference {
+  id: UUID;
+  user_id: UUID;
+  event_type: NotificationEventType;
+  channel: "in_app";
+  enabled: boolean;
+  frequency: NotificationFrequency;
+  minimum_severity: InAppNotificationSeverity;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  timezone: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationPreferenceUpdateItem {
+  event_type: NotificationEventType;
+  enabled: boolean;
+  frequency: NotificationFrequency;
+  minimum_severity: InAppNotificationSeverity;
+  quiet_hours_start?: string | null;
+  quiet_hours_end?: string | null;
+  timezone?: string;
+}

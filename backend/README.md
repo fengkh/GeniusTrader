@@ -1,8 +1,8 @@
 # GeniusTrader Backend
 
-FastAPI 后端第一阶段只覆盖基础工程、PostgreSQL 迁移、数据库 Session 认证、管理员创建用户、股票基础目录和用户自选股基础闭环。
+FastAPI 后端已经覆盖基础工程、PostgreSQL 迁移、数据库 Session 认证、管理员创建用户、股票基础目录、用户自选股基础闭环、受控信息采集、AI Gateway、结构化信息分析、用户每日复盘、业务事件和站内通知。
 
-当前不包含真实行情 Provider、公告资讯 Provider、AI Gateway、估值、复盘生成、通知编排、微信、Docker 或前端真实 API 接入。
+当前不包含真实行情 Provider、公告资讯 Provider、估值后端、全市场真实复盘、自动调度、任务队列、微信、邮件、Web Push、移动 Push、Docker 或生产部署。
 
 ## Windows PowerShell 本地运行
 
@@ -98,7 +98,7 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 .\.venv-backend\Scripts\python.exe -m compileall app tests
 ```
 
-最近一次收尾验收结果：`30 passed, 0 failed, 0 skipped`。pytest 配置禁用本地 cacheprovider，仅避免 Windows/本地沙箱写入 `.pytest_cache` 时卡住，不跳过任何测试。
+最近一次第四阶段开发中验收结果：`55 passed, 0 failed, 0 skipped`。pytest 配置禁用本地 cacheprovider，仅避免 Windows/本地沙箱写入 `.pytest_cache` 时卡住，不跳过任何测试。
 
 ## 本地端口
 
@@ -106,9 +106,7 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 - 后端 API：`http://127.0.0.1:8000`
 - PostgreSQL：`127.0.0.1:5432`
 
-当前前端仍使用本地 Mock 数据，不会自动连接本后端。
-
-第三阶段起，前端 `/login`、`/information`、`/information/[itemId]` 和 `/settings/ai` 已开始连接本地后端。其余今日、自选股、个股详情、复盘历史、通知和通知设置页面仍保持 Mock。
+前端 `/login`、`/information`、`/information/[itemId]`、`/settings/ai`、`/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分连接本地后端。`/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心和微信公众号区域仍保持 Mock。
 
 ## API 边界
 
@@ -161,6 +159,45 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 
 已归档自选股默认不允许 `PATCH` 修改。重复删除已归档记录保持幂等；跨用户 UUID 不会泄露真实归属。
 
+### 用户每日复盘
+
+- `GET /api/v1/reviews`
+- `POST /api/v1/reviews`
+- `GET /api/v1/reviews/{review_id}`
+- `PATCH /api/v1/reviews/{review_id}`
+- `POST /api/v1/reviews/{review_id}/regenerate`
+- `GET /api/v1/reviews/{review_id}/versions`
+- `GET /api/v1/reviews/{review_id}/versions/{version_id}`
+
+复盘业务日期为 `review_date`，按 `Asia/Shanghai` 解释。信息归属日期优先使用来源 `published_at`，缺失时使用信息创建时间。复盘只聚合当前用户保存的信息、最新成功分析版本、confirmed 股票关系、自选股、关注原因、用户标签和待核实事项，不代表全市场行情复盘。
+
+常用手工请求示例使用占位值：
+
+```powershell
+# 生成当日或指定历史日期复盘。未配置 AI 时会生成 rules_only 规则复盘。
+Invoke-RestMethod -Method Post -WebSession $session -Headers $headers -Uri http://127.0.0.1:8000/api/v1/reviews -ContentType "application/json" -Body '{"review_date":"YYYY-MM-DD","use_ai":true,"force":false}'
+
+# force 重新生成，旧版本保留。
+Invoke-RestMethod -Method Post -WebSession $session -Headers $headers -Uri "http://127.0.0.1:8000/api/v1/reviews/REVIEW_ID_PLACEHOLDER/regenerate?use_ai=true"
+
+# 查看版本列表。
+Invoke-RestMethod -Method Get -WebSession $session -Uri http://127.0.0.1:8000/api/v1/reviews/REVIEW_ID_PLACEHOLDER/versions
+```
+
+AI 失败时不会删除规则复盘，版本会以 `rules_with_ai_fallback` 保存，复盘状态为 `partial`。
+
+### 站内通知
+
+- `GET /api/v1/notifications`
+- `GET /api/v1/notifications/unread-count`
+- `GET /api/v1/notifications/{notification_id}`
+- `PATCH /api/v1/notifications/{notification_id}`
+- `POST /api/v1/notifications/mark-all-read`
+- `GET /api/v1/notification-preferences`
+- `PUT /api/v1/notification-preferences`
+
+当前真实通道仅为 `in_app`。`daily_digest` 当前表示不产生单条即时站内通知，而是进入每日复盘或摘要边界；没有自动定时任务，也没有真实微信推送。
+
 ## 统一错误格式
 
 ```json
@@ -182,7 +219,7 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 - 迁移回滚：仅在 `geniustrader_test` 执行 `downgrade base` 后重新 `upgrade head`；业务表可移除并恢复。
 - 完整 pytest：`30 passed, 0 failed, 0 skipped`。
 - Windows 本地启动：继续使用 `.\.venv-backend\Scripts\python.exe -m app.cli.run_dev`。
-- 当前仍未实现：真实行情、公告资讯、AI Gateway、估值、复盘生成、通知编排、微信、Docker 和前端真实 API 接入。
+- 当时仍未实现：真实行情、公告资讯、AI Gateway、估值、复盘生成、通知编排、微信、Docker 和前端真实 API 接入；后续阶段已补充 AI Gateway、信息中心、用户每日复盘和站内通知。
 ## Phase 2: Information Intake And AI Analysis
 
 This backend stage adds:

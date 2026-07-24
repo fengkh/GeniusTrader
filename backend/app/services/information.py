@@ -25,6 +25,7 @@ from app.models.information import (
     VerificationItem,
 )
 from app.models.stock import Stock
+from app.models.watchlist import UserWatchlistItem
 from app.schemas.information import (
     InformationDetailOut,
     InformationSourceOut,
@@ -38,6 +39,7 @@ from app.services.ai_providers import get_enabled_provider
 from app.services.audit import add_audit_log
 from app.services.content_fetcher import FetchResult, fetch_public_content
 from app.services.html_extraction import extract_text_from_html, normalize_whitespace
+from app.services.notifications import create_business_event
 
 ANALYSIS_SCHEMA_VERSION = "information-analysis-v1"
 ANALYSIS_PROMPT_VERSION = "information-analysis-prompt-v7"
@@ -151,6 +153,112 @@ async def _create_user_stock_relations(
         )
 
 
+async def _has_confirmed_watchlist_relation(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    item_id: uuid.UUID,
+) -> bool:
+    count = (
+        await session.execute(
+            select(func.count())
+            .select_from(InformationStockRelation)
+            .join(UserWatchlistItem, UserWatchlistItem.stock_id == InformationStockRelation.stock_id)
+            .where(
+                InformationStockRelation.information_item_id == item_id,
+                InformationStockRelation.relation_status == "confirmed",
+                UserWatchlistItem.user_id == user_id,
+                UserWatchlistItem.archived_at.is_(None),
+            )
+        )
+    ).scalar_one()
+    return count > 0
+
+
+async def _mark_related_review_stale(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    item_id: uuid.UUID,
+    settings: Settings,
+    reason: str,
+    request_id: str | None,
+) -> None:
+    from app.services.daily_reviews import mark_reviews_stale_for_information_item
+
+    await mark_reviews_stale_for_information_item(
+        session,
+        user_id=user_id,
+        item_id=item_id,
+        settings=settings,
+        reason=reason,
+        request_id=request_id,
+    )
+
+
+async def _create_high_priority_event_if_needed(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    item: InformationItem,
+    request_id: str | None,
+) -> None:
+    if not await _has_confirmed_watchlist_relation(session, user_id=user_id, item_id=item.id):
+        return
+    await create_business_event(
+        session,
+        user_id=user_id,
+        event_type="information.high_priority_detected",
+        subject_type="information_item",
+        subject_id=item.id,
+        severity="notice",
+        payload={"title": _safe_slice(item.title, 120), "information_item_id": str(item.id)},
+        source="information_service",
+        idempotency_key=f"information.high_priority_detected:{item.id}",
+        request_id=request_id,
+        correlation_id=request_id,
+    )
+
+
+async def _create_verification_event_if_needed(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    item: InformationItem,
+    analysis: InformationAnalysisVersion,
+    request_id: str | None,
+) -> None:
+    if not await _has_confirmed_watchlist_relation(session, user_id=user_id, item_id=item.id):
+        return
+    count = (
+        await session.execute(
+            select(func.count())
+            .select_from(VerificationItem)
+            .where(
+                VerificationItem.information_item_id == item.id,
+                VerificationItem.analysis_version_id == analysis.id,
+                VerificationItem.status == "pending",
+                VerificationItem.priority == "high",
+            )
+        )
+    ).scalar_one()
+    if not count:
+        return
+    await create_business_event(
+        session,
+        user_id=user_id,
+        event_type="information.verification_required",
+        subject_type="information_item",
+        subject_id=item.id,
+        severity="notice",
+        payload={"information_item_id": str(item.id), "verification_item_count": count},
+        source="information_service",
+        idempotency_key=f"information.verification_required:{item.id}:{analysis.id}",
+        request_id=request_id,
+        correlation_id=request_id,
+    )
+
+
 async def create_manual_information(
     session: AsyncSession,
     *,
@@ -213,6 +321,14 @@ async def create_manual_information(
         request_id=request_id,
         metadata={"source_type": source_type, "character_count": len(body)},
     )
+    await _mark_related_review_stale(
+        session,
+        user_id=user_id,
+        item_id=item.id,
+        settings=settings,
+        reason="information_created",
+        request_id=request_id,
+    )
     await session.commit()
     await session.refresh(item)
     return item
@@ -268,6 +384,14 @@ async def create_url_information(
         result="success",
         request_id=request_id,
         metadata={"source_type": source_type, "fetch_now": fetch_now},
+    )
+    await _mark_related_review_stale(
+        session,
+        user_id=user_id,
+        item_id=item.id,
+        settings=settings,
+        reason="information_created",
+        request_id=request_id,
     )
     await session.commit()
     await session.refresh(item)
@@ -370,6 +494,14 @@ async def fetch_information_item(
             request_id=request_id,
             metadata={"error_code": exc.code.value},
         )
+        await _mark_related_review_stale(
+            session,
+            user_id=user_id,
+            item_id=item.id,
+            settings=settings,
+            reason="information_fetch_failed",
+            request_id=request_id,
+        )
         await session.commit()
         raise
     await add_audit_log(
@@ -381,6 +513,14 @@ async def fetch_information_item(
         result="success",
         request_id=request_id,
         metadata={"content_type": source.content_type, "response_bytes": attempt.response_bytes},
+    )
+    await _mark_related_review_stale(
+        session,
+        user_id=user_id,
+        item_id=item.id,
+        settings=settings,
+        reason="information_fetched",
+        request_id=request_id,
     )
     await session.commit()
     await session.refresh(item)
@@ -394,6 +534,7 @@ async def add_information_content(
     item_id: uuid.UUID,
     title: str | None,
     text: str,
+    settings: Settings,
     request_id: str | None,
 ) -> InformationContent:
     item = await get_information_item_or_404(session, user_id=user_id, item_id=item_id)
@@ -422,6 +563,14 @@ async def add_information_content(
         result="success",
         request_id=request_id,
         metadata={"character_count": len(body)},
+    )
+    await _mark_related_review_stale(
+        session,
+        user_id=user_id,
+        item_id=item.id,
+        settings=settings,
+        reason="information_content_changed",
+        request_id=request_id,
     )
     await session.commit()
     await session.refresh(content)
@@ -853,6 +1002,27 @@ async def analyze_information_item(
             request_id=request_id,
             metadata={"error_code": task.error_code},
         )
+        await create_business_event(
+            session,
+            user_id=user_id,
+            event_type="ai_task.failed",
+            subject_type="information_item",
+            subject_id=item.id,
+            severity="notice",
+            payload={"information_item_id": str(item.id), "ai_task_id": str(task.id), "error_code": task.error_code},
+            source="information_service",
+            idempotency_key=f"ai_task.failed:{item.id}:{content.content_hash}",
+            request_id=request_id,
+            correlation_id=request_id,
+        )
+        await _mark_related_review_stale(
+            session,
+            user_id=user_id,
+            item_id=item.id,
+            settings=settings,
+            reason="information_analysis_failed",
+            request_id=request_id,
+        )
         await session.commit()
         await session.refresh(analysis)
         return analysis
@@ -926,6 +1096,21 @@ async def analyze_information_item(
         result="success",
         request_id=request_id,
         metadata={"analysis_version": analysis.version_number, "schema_version": ANALYSIS_SCHEMA_VERSION},
+    )
+    await _create_verification_event_if_needed(
+        session,
+        user_id=user_id,
+        item=item,
+        analysis=analysis,
+        request_id=request_id,
+    )
+    await _mark_related_review_stale(
+        session,
+        user_id=user_id,
+        item_id=item.id,
+        settings=settings,
+        reason="information_analysis_succeeded",
+        request_id=request_id,
     )
     await session.commit()
     await session.refresh(analysis)
@@ -1132,9 +1317,11 @@ async def patch_information_item(
     is_important: bool | None,
     is_read: bool | None,
     archived: bool | None,
+    settings: Settings,
     request_id: str | None,
 ) -> InformationItem:
     item = await get_information_item_or_404(session, user_id=user_id, item_id=item_id)
+    was_important = item.is_important
     if title is not None:
         item.title = title
     if user_note is not None:
@@ -1159,6 +1346,31 @@ async def patch_information_item(
         result="success",
         request_id=request_id,
     )
+    if is_important is True and not was_important:
+        await _create_high_priority_event_if_needed(
+            session,
+            user_id=user_id,
+            item=item,
+            request_id=request_id,
+        )
+        await add_audit_log(
+            session,
+            actor_user_id=user_id,
+            action="information.mark_important",
+            target_type="information_item",
+            target_id=item.id,
+            result="success",
+            request_id=request_id,
+        )
+    if archived is not None or is_important is not None or title is not None or user_note is not None:
+        await _mark_related_review_stale(
+            session,
+            user_id=user_id,
+            item_id=item.id,
+            settings=settings,
+            reason="information_updated",
+            request_id=request_id,
+        )
     await session.commit()
     await session.refresh(item)
     return item
@@ -1170,6 +1382,7 @@ async def add_stock_relation(
     user_id: uuid.UUID,
     item_id: uuid.UUID,
     payload: StockRelationCreate,
+    settings: Settings,
     request_id: str | None,
 ) -> InformationStockRelation:
     await get_information_item_or_404(session, user_id=user_id, item_id=item_id)
@@ -1195,6 +1408,14 @@ async def add_stock_relation(
         result="success",
         request_id=request_id,
         metadata={"stock_id": str(payload.stock_id)},
+    )
+    await _mark_related_review_stale(
+        session,
+        user_id=user_id,
+        item_id=item_id,
+        settings=settings,
+        reason="stock_relation_added",
+        request_id=request_id,
     )
     await session.commit()
     await session.refresh(relation)
@@ -1229,9 +1450,11 @@ async def patch_stock_relation(
     item_id: uuid.UUID,
     relation_id: uuid.UUID,
     payload: StockRelationPatch,
+    settings: Settings,
     request_id: str | None,
 ) -> InformationStockRelation:
     relation = await _get_relation_or_404(session, user_id=user_id, item_id=item_id, relation_id=relation_id)
+    previous_status = relation.relation_status
     if payload.stock_id is not None:
         stock = (await session.execute(select(Stock).where(Stock.id == payload.stock_id))).scalar_one_or_none()
         if not stock:
@@ -1253,6 +1476,15 @@ async def patch_stock_relation(
         result="success",
         request_id=request_id,
     )
+    if payload.relation_status is not None and payload.relation_status != previous_status:
+        await _mark_related_review_stale(
+            session,
+            user_id=user_id,
+            item_id=item_id,
+            settings=settings,
+            reason="stock_relation_status_changed",
+            request_id=request_id,
+        )
     await session.commit()
     await session.refresh(relation)
     return relation
@@ -1264,6 +1496,7 @@ async def delete_stock_relation(
     user_id: uuid.UUID,
     item_id: uuid.UUID,
     relation_id: uuid.UUID,
+    settings: Settings,
     request_id: str | None,
 ) -> None:
     relation = await _get_relation_or_404(session, user_id=user_id, item_id=item_id, relation_id=relation_id)
@@ -1279,6 +1512,14 @@ async def delete_stock_relation(
         target_type="information_stock_relation",
         target_id=relation.id,
         result="success",
+        request_id=request_id,
+    )
+    await _mark_related_review_stale(
+        session,
+        user_id=user_id,
+        item_id=item_id,
+        settings=settings,
+        reason="stock_relation_deleted",
         request_id=request_id,
     )
     await session.commit()

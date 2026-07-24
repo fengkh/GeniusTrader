@@ -68,3 +68,13 @@
 - 决策：前端统一 API client 使用 `NEXT_PUBLIC_API_BASE_URL`、`credentials: "include"` 和 `X-CSRF-Token`，不使用 localStorage 或 sessionStorage 保存 Session、密码或 AI Key。
 - 决策：后端 Session 增加 CSRF 绑定；登录发放独立 CSRF Cookie，写请求校验 `X-CSRF-Token`，退出同时清理 Session 与 CSRF Cookie。
 - 决策：AI Provider 页面不显示完整 API Key，测试连接只通过后端 AI Gateway 执行，不在浏览器端直连第三方 AI。
+
+## 2026-07-24 第四阶段决策
+
+| 编号 | 决策 | 原因 | 影响范围 | 状态 | 日期 | 复审条件 |
+| --- | --- | --- | --- | --- | --- | --- |
+| D-049 | 第四阶段实现“用户私有信息每日复盘”，不实现全市场真实行情复盘 | 先闭合信息中心到个人复盘的可靠链路，降低数据 Provider 依赖 | `/reviews`、复盘模型、AI 任务、通知 | 已确认 | 2026-07-24 | 全市场复盘后端进入正式开发前 |
+| D-050 | 复盘先由程序生成 `rule_snapshot`，AI 只解释该快照，失败后保留规则复盘 | 保证事实、观点、传闻和来源可追溯，避免 AI 编造事实 | AI Gateway、复盘版本、安全 | 已确认 | 2026-07-24 | 复盘 Schema 需要升级时 |
+| D-051 | 用户每日复盘采用 `input_fingerprint` 幂等和 `stale` 状态，不自动覆盖旧版本 | 防止重复 AI 调用和历史版本丢失 | 复盘服务、版本管理、前端详情 | 已确认 | 2026-07-24 | 引入异步任务或自动调度时 |
+| D-052 | 当前真实通知只实现 `in_app`，`daily_digest` 表示不创建单条即时通知，不代表已实现定时摘要 | 控制外部通道、调度和隐私复杂度 | 通知偏好、通知中心、设置页 | 已确认 | 2026-07-24 | 外部推送或摘要调度方案确认前 |
+| D-053 | `/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分接真实 API；今日、自选股、个股详情、全市场复盘、估值和微信区域继续 Mock | 分阶段联调真实闭环，同时避免扩大行情/估值/微信范围 | 前端路由、页面架构、验收 | 已确认 | 2026-07-24 | 下一阶段进入行情、估值或外部通知开发前 |

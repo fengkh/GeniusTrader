@@ -23,6 +23,13 @@ REPO_ROOT = BACKEND_ROOT.parent
 LOCAL_DATABASE_ENV = REPO_ROOT / ".local" / "database.env"
 TRUNCATE_TABLES = [
     "audit_logs",
+    "notification_deliveries",
+    "notifications",
+    "notification_preferences",
+    "business_events",
+    "daily_review_items",
+    "daily_review_versions",
+    "daily_reviews",
     "verification_items",
     "information_entity_mentions",
     "information_stock_relations",

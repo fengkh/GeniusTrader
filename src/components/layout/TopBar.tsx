@@ -3,21 +3,47 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, LogOut, ShieldCheck, UserCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { MockRoleSwitcher } from "@/components/mock/MockRoleSwitcher";
 import { MockScenarioSwitcher } from "@/components/mock/MockScenarioSwitcher";
 import { SimulatedDataBadge } from "@/components/status/SimulatedDataBadge";
+import { getUnreadNotificationCount } from "@/lib/api/notifications";
 import { useMockState } from "@/lib/mock-state";
 
 export function TopBar() {
   const { role, data } = useMockState();
   const { user, loading, logout } = useAuth();
   const router = useRouter();
-  const unreadCount = data.notifications.filter((item) => item.state === "unread").length;
+  const [unreadCount, setUnreadCount] = useState(0);
+  const displayedUnreadCount = user ? unreadCount : 0;
+
+  const refreshUnreadCount = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+    try {
+      const response = await getUnreadNotificationCount();
+      setUnreadCount(response.unread_count);
+    } catch {
+      setUnreadCount(0);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (loading || !user) {
+      return undefined;
+    }
+    const timeoutId = window.setTimeout(() => {
+      void refreshUnreadCount();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loading, refreshUnreadCount, user]);
 
   async function handleLogout() {
     await logout();
+    setUnreadCount(0);
     router.push("/login");
   }
 
@@ -83,9 +109,9 @@ export function TopBar() {
             aria-label="通知中心"
           >
             <Bell className="h-4 w-4" />
-            {unreadCount > 0 ? (
+            {displayedUnreadCount > 0 ? (
               <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold text-white">
-                {unreadCount}
+                {displayedUnreadCount}
               </span>
             ) : null}
           </Link>
