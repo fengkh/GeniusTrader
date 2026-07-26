@@ -1,5 +1,11 @@
 # GeniusTrader
 
+## Fullstack Phase 6 Scope Note
+
+The sixth phase adds an experimental external source registry and a manually triggered listed-company announcement candidate inbox. CNINFO and SSE disclosure are registered as disabled experimental sources only; they are not confirmed production data providers. Announcement sync, real network access, provider adapters, and PDF extraction are all feature-flagged and default off. Announcement candidates do not trigger AI, BusinessEvent, Notification, or daily review generation until the user explicitly imports a candidate into InformationItem and then uses existing flows.
+
+See `docs/21_EXTERNAL_SOURCES_AND_ANNOUNCEMENT_INGESTION_DRAFT.md` for the detailed product and technical boundary.
+
 GeniusTrader 是一套面向 A 股个人研究场景的自选股复盘与多源舆情管理平台。第一版聚焦“A 股自选股复盘闭环”，帮助用户管理自选股、追踪行情与公告资讯、整理舆情线索，并使用用户自带的 AI API 生成可追溯的每日复盘。
 
 当前仓库已进入分阶段实现：Mock 前端原型、FastAPI 后端基础工程、受控信息采集与 AI Gateway、信息中心前端真实 API 联调已建立；当前阶段正在实现“用户私有信息每日复盘、BusinessEvent 与站内通知真实闭环”。`/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分已切换到本地后端 API。

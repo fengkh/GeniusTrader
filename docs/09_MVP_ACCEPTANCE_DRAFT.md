@@ -1,5 +1,23 @@
 # MVP 验收标准草案
 
+## 第六阶段补充：公告候选收件箱验收项
+
+- Alembic head 为 `202607230005`，迁移可在测试库 downgrade 到 base 后重新 upgrade。
+- `external_sources` 至少幂等注册 `CNINFO` 和 `SSE_DISCLOSURE`，二者默认 `enabled=false`、`experimental=true`，授权和商业使用状态不得默认 approved。
+- 未实现来源不得显示为可用 Provider。
+- 公告同步、真实网络、CNINFO、SSE 和 PDF 提取默认关闭。
+- production 环境阻止真实公告网络同步。
+- 用户只能同步本人当前自选股或本人选择的自选股子集，不得全市场扫描。
+- 无自选股、来源关闭、Provider 关闭、真实网络关闭、限流、源结构变化、PDF 不可用和字段缺失均有明确状态。
+- 重复同步不重复创建共享公告记录或同一用户候选。
+- 同一公告可分别成为不同用户候选，用户处理状态互不影响。
+- 候选导入 InformationItem 幂等，不自动 AI 分析、不自动标记重要、不自动创建通知。
+- `metadata_only` 不补写正文；`extracted_document` 使用 `provider_document`；`user_supplemented` 使用用户补充文本。
+- PDF 仅按需提取，不保存原始 PDF 文件，不提供本地 PDF 下载。
+- 导入后的 InformationItem 可触发既有每日复盘 stale。
+- 所有公告页面显示实验说明和来源授权状态。
+- 自动测试不访问真实网络，原有测试和新增公告测试全部通过。
+
 本文列出第一版 MVP 的可执行、可观察、可判断验收项。
 
 | 编号 | 验收项 | 通过标准 | 失败示例 |

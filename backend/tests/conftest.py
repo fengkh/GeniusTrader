@@ -23,6 +23,11 @@ REPO_ROOT = BACKEND_ROOT.parent
 LOCAL_DATABASE_ENV = REPO_ROOT / ".local" / "database.env"
 TRUNCATE_TABLES = [
     "audit_logs",
+    "information_ingestion_links",
+    "user_announcement_candidates",
+    "announcement_records",
+    "provider_sync_states",
+    "provider_sync_runs",
     "notification_deliveries",
     "notifications",
     "notification_preferences",
@@ -72,6 +77,11 @@ if TEST_DATABASE_URL:
 os.environ.setdefault("APP_ENV", "development")
 os.environ.setdefault("APP_ENCRYPTION_KEYS", Fernet.generate_key().decode("ascii"))
 os.environ.setdefault("ALLOW_PRIVATE_AI_BASE_URL", "true")
+os.environ["ANNOUNCEMENT_INGESTION_ENABLED"] = "false"
+os.environ["ANNOUNCEMENT_REAL_NETWORK_ENABLED"] = "false"
+os.environ["ANNOUNCEMENT_CNINFO_ENABLED"] = "false"
+os.environ["ANNOUNCEMENT_SSE_ENABLED"] = "false"
+os.environ["ANNOUNCEMENT_DOCUMENT_EXTRACTION_ENABLED"] = "false"
 
 
 def _test_database_available() -> bool:
@@ -132,6 +142,14 @@ async def clean_test_database(migrated_test_database: None) -> AsyncGenerator[No
     async with AsyncSessionLocal() as session:
         await session.execute(
             text(f"TRUNCATE TABLE {', '.join(TRUNCATE_TABLES)} RESTART IDENTITY CASCADE")
+        )
+        await session.execute(
+            text(
+                "UPDATE external_sources SET enabled=false, health_status='unknown', "
+                "authorization_status='review_required', redistribution_status='unclear', "
+                "commercial_use_status='unclear', legal_review_status='pending', updated_at=now() "
+                "WHERE source_code IN ('CNINFO', 'SSE_DISCLOSURE')"
+            )
         )
         await session.commit()
     yield

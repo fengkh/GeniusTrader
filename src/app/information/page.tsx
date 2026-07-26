@@ -206,6 +206,12 @@ export default function InformationPage() {
       <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
         当前是真实后端联调页，但不接入真实公告资讯 Provider、不进行全站爬取。URL
         抓取由后端按单链接受控规则执行，失败后可手动补充正文。
+        <Link
+          href="/information/announcements"
+          className="focus-ring ml-0 mt-3 inline-flex h-9 items-center rounded-md border border-blue-300 bg-white px-3 text-sm font-semibold text-blue-800 hover:bg-blue-50 sm:ml-3 sm:mt-0"
+        >
+          进入公告候选
+        </Link>
       </section>
 
       {!user && !authLoading ? (
@@ -368,7 +374,7 @@ export default function InformationPage() {
       {createOpen ? (
         <CreateInformationPanel
           onClose={() => setCreateOpen(false)}
-          onCreated={(itemId) => router.push(`/information/${itemId}`)}
+          onCreated={(itemId) => router.push(`/information/items/${itemId}`)}
         />
       ) : null}
     </div>
@@ -378,7 +384,7 @@ export default function InformationPage() {
 function InformationRow({ item }: { item: InformationSummary }) {
   return (
     <Link
-      href={`/information/${item.id}`}
+      href={`/information/items/${item.id}`}
       className="focus-ring grid gap-2 border-b border-slate-100 px-4 py-3 hover:bg-slate-50 last:border-b-0 lg:grid-cols-[1fr_120px_120px_120px_120px] lg:items-center"
     >
       <div className="min-w-0">

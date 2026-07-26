@@ -94,7 +94,7 @@ class InformationContent(UuidPrimaryKeyMixin, Base):
     __tablename__ = "information_contents"
     __table_args__ = (
         CheckConstraint(
-            "content_origin IN ('user_input', 'fetched_page', 'user_correction')",
+            "content_origin IN ('user_input', 'fetched_page', 'user_correction', 'provider_document')",
             name="information_contents_origin_allowed",
         ),
         CheckConstraint(

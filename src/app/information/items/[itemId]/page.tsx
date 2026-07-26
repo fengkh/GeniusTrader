@@ -128,7 +128,7 @@ export default function InformationDetailPage() {
         description="信息详情属于用户私有数据，请先登录。"
         action={
           <Link
-            href={`/login?redirect=/information/${itemId}`}
+            href={`/login?redirect=/information/items/${itemId}`}
             className="focus-ring inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white"
           >
             去登录

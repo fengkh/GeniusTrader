@@ -72,6 +72,15 @@ export default function SettingsPage() {
               查看站内通知偏好、微信公众号Mock状态和免打扰时间。
             </p>
           </Link>
+          <Link
+            href="/settings/sources"
+            className="focus-ring rounded-lg border border-slate-200 bg-white p-4 hover:bg-slate-50"
+          >
+            <p className="text-sm font-semibold text-slate-950">信息来源</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              查看外部来源注册、实验公告Provider和未来来源规划，不在前端修改功能开关。
+            </p>
+          </Link>
           {user ? (
             <button
               onClick={handleLogout}

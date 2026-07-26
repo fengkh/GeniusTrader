@@ -8,6 +8,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parent
 LOCAL_DATABASE_ENV = REPO_ROOT / ".local" / "database.env"
 LOCAL_APP_ENV = REPO_ROOT / ".local" / "app.env"
+LOCAL_ANNOUNCEMENT_ENV = REPO_ROOT / ".local" / "announcement.env"
 BACKEND_ENV = BACKEND_ROOT / ".env"
 
 
@@ -51,9 +52,69 @@ class Settings(BaseSettings):
         default=50000,
         validation_alias="INFORMATION_MAX_MANUAL_TEXT_CHARS",
     )
+    external_source_registry_enabled: bool = Field(
+        default=True,
+        validation_alias="EXTERNAL_SOURCE_REGISTRY_ENABLED",
+    )
+    announcement_ingestion_enabled: bool = Field(
+        default=False,
+        validation_alias="ANNOUNCEMENT_INGESTION_ENABLED",
+    )
+    announcement_real_network_enabled: bool = Field(
+        default=False,
+        validation_alias="ANNOUNCEMENT_REAL_NETWORK_ENABLED",
+    )
+    announcement_cninfo_enabled: bool = Field(
+        default=False,
+        validation_alias="ANNOUNCEMENT_CNINFO_ENABLED",
+    )
+    announcement_sse_enabled: bool = Field(
+        default=False,
+        validation_alias="ANNOUNCEMENT_SSE_ENABLED",
+    )
+    announcement_document_extraction_enabled: bool = Field(
+        default=False,
+        validation_alias="ANNOUNCEMENT_DOCUMENT_EXTRACTION_ENABLED",
+    )
+    announcement_max_symbols_per_run: int = Field(
+        default=20,
+        validation_alias="ANNOUNCEMENT_MAX_SYMBOLS_PER_RUN",
+    )
+    announcement_max_records_per_run: int = Field(
+        default=50,
+        validation_alias="ANNOUNCEMENT_MAX_RECORDS_PER_RUN",
+    )
+    announcement_max_requests_per_run: int = Field(
+        default=30,
+        validation_alias="ANNOUNCEMENT_MAX_REQUESTS_PER_RUN",
+    )
+    announcement_request_delay_ms: int = Field(
+        default=1000,
+        validation_alias="ANNOUNCEMENT_REQUEST_DELAY_MS",
+    )
+    announcement_request_timeout_seconds: int = Field(
+        default=15,
+        validation_alias="ANNOUNCEMENT_REQUEST_TIMEOUT_SECONDS",
+    )
+    announcement_max_response_bytes: int = Field(
+        default=5242880,
+        validation_alias="ANNOUNCEMENT_MAX_RESPONSE_BYTES",
+    )
+    announcement_max_pdf_bytes: int = Field(
+        default=20971520,
+        validation_alias="ANNOUNCEMENT_MAX_PDF_BYTES",
+    )
+    announcement_max_pdf_pages: int = Field(
+        default=300,
+        validation_alias="ANNOUNCEMENT_MAX_PDF_PAGES",
+    )
+    announcement_sync_lookback_days: int = Field(
+        default=7,
+        validation_alias="ANNOUNCEMENT_SYNC_LOOKBACK_DAYS",
+    )
 
     model_config = SettingsConfigDict(
-        env_file=(LOCAL_DATABASE_ENV, LOCAL_APP_ENV, BACKEND_ENV),
+        env_file=(LOCAL_DATABASE_ENV, LOCAL_APP_ENV, LOCAL_ANNOUNCEMENT_ENV, BACKEND_ENV),
         env_file_encoding="utf-8-sig",
         case_sensitive=False,
         extra="ignore",

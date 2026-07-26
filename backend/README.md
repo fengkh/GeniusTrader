@@ -1,5 +1,11 @@
 # GeniusTrader Backend
 
+## Backend Phase 6 Scope Note
+
+The backend sixth phase adds external source registry tables, provider sync run/state tables, shared announcement records, user-private announcement candidates, and idempotent announcement-to-InformationItem ingestion links. The only implemented adapters are experimental CNINFO and limited SSE disclosure adapters, both guarded by source status and feature flags. `.local/announcement.env` is loaded for local-only experiment flags and must remain ignored by Git.
+
+New runtime dependency: `pypdf`, used only for user-triggered, opt-in PDF text extraction. The backend must not store original PDF files, return PDF text in errors, use cookies/proxies/browser automation, scan the full market, schedule background jobs, auto-import announcements, auto-run AI, or auto-create notifications from candidates.
+
 FastAPI 后端已经覆盖基础工程、PostgreSQL 迁移、数据库 Session 认证、管理员创建用户、股票基础目录、用户自选股基础闭环、受控信息采集、AI Gateway、结构化信息分析、用户每日复盘、业务事件和站内通知。
 
 当前不包含真实行情 Provider、公告资讯 Provider、估值后端、全市场真实复盘、自动调度、任务队列、微信、邮件、Web Push、移动 Push、Docker 或生产部署。

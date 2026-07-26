@@ -3,8 +3,10 @@ from fastapi import APIRouter
 from app.api.routes import (
     admin_users,
     ai_providers,
+    announcement_ingestion,
     auth,
     daily_reviews,
+    external_sources,
     health,
     information,
     notifications,
@@ -20,6 +22,22 @@ api_router.include_router(stocks.router, prefix="/stocks", tags=["stocks"])
 api_router.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])
 api_router.include_router(ai_providers.router, prefix="/ai/providers", tags=["ai-providers"])
 api_router.include_router(information.router, prefix="/information", tags=["information"])
+api_router.include_router(external_sources.router, prefix="/external-sources", tags=["external-sources"])
+api_router.include_router(
+    external_sources.providers_router,
+    prefix="/announcement-providers",
+    tags=["announcement-providers"],
+)
+api_router.include_router(
+    announcement_ingestion.sync_runs_router,
+    prefix="/announcement-sync-runs",
+    tags=["announcement-sync-runs"],
+)
+api_router.include_router(
+    announcement_ingestion.candidates_router,
+    prefix="/announcement-candidates",
+    tags=["announcement-candidates"],
+)
 api_router.include_router(daily_reviews.router, prefix="/reviews", tags=["daily-reviews"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(

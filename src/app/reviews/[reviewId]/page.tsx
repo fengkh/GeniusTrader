@@ -422,7 +422,7 @@ function ClaimGroup({ title, items }: { title: string; items: ReviewClaim[] }) {
               {item.evidence_text ? <p className="text-xs text-slate-500">证据：{item.evidence_text}</p> : null}
               {item.information_item_id || item.source_information_item_id ? (
                 <Link
-                  href={`/information/${item.information_item_id ?? item.source_information_item_id}`}
+                  href={`/information/items/${item.information_item_id ?? item.source_information_item_id}`}
                   className="text-xs font-semibold text-blue-700 hover:text-blue-800"
                 >
                   查看来源
@@ -486,7 +486,7 @@ function SourceSummary({ item }: { item: Record<string, unknown> }) {
         {stringValue(item.relation_scope) || stringValue(item.inclusion_type) || "未归属"}
       </p>
       {id ? (
-        <Link href={`/information/${id}`} className="mt-1 inline-flex text-xs font-semibold text-blue-700 hover:text-blue-800">
+        <Link href={`/information/items/${id}`} className="mt-1 inline-flex text-xs font-semibold text-blue-700 hover:text-blue-800">
           查看来源
         </Link>
       ) : null}
@@ -538,7 +538,7 @@ function SourceLinks({ ids }: { ids: string[] }) {
       {ids.map((id) => (
         <Link
           key={id}
-          href={`/information/${id}`}
+          href={`/information/items/${id}`}
           className="focus-ring inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
         >
           <CheckCircle2 className="h-3.5 w-3.5" />

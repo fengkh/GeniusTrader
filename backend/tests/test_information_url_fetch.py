@@ -1,6 +1,7 @@
 from httpx import AsyncClient
 
 from app.core.errors import AppError, ErrorCode
+from app.core.url_security import ValidatedUrl
 from app.services.content_fetcher import FetchResult
 from tests.conftest import create_user, login, unique_username
 
@@ -12,8 +13,16 @@ async def _login_user(client: AsyncClient, db_session):
     assert response.status_code == 200
 
 
+def _allow_example_url(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.information.validate_public_content_url",
+        lambda url: ValidatedUrl(original_url=url, normalized_url=url, host="example.com"),
+    )
+
+
 async def test_public_url_fetch_success_uses_controlled_fetcher(client: AsyncClient, db_session, monkeypatch):
     await _login_user(client, db_session)
+    _allow_example_url(monkeypatch)
 
     async def fake_fetch(url, settings):
         del settings
@@ -44,6 +53,7 @@ async def test_public_url_fetch_success_uses_controlled_fetcher(client: AsyncCli
 
 async def test_duplicate_url_is_rejected(client: AsyncClient, db_session, monkeypatch):
     await _login_user(client, db_session)
+    _allow_example_url(monkeypatch)
 
     async def fake_fetch(url, settings):
         del settings
@@ -75,6 +85,7 @@ async def test_private_url_is_blocked_before_fetch(client: AsyncClient, db_sessi
 
 async def test_fetch_failure_leaves_information_item_visible(client: AsyncClient, db_session, monkeypatch):
     await _login_user(client, db_session)
+    _allow_example_url(monkeypatch)
 
     async def fake_fetch(url, settings):
         del url, settings

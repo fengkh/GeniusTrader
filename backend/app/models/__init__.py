@@ -1,6 +1,14 @@
 from app.models.ai import AIProviderConfig, AITask, AITaskAttempt
 from app.models.audit import AuditLog
 from app.models.base import Base
+from app.models.external_source import (
+    AnnouncementRecord,
+    ExternalSource,
+    InformationIngestionLink,
+    ProviderSyncRun,
+    ProviderSyncState,
+    UserAnnouncementCandidate,
+)
 from app.models.information import (
     ContentFetchAttempt,
     InformationAnalysisVersion,
@@ -33,10 +41,13 @@ __all__ = [
     "AITaskAttempt",
     "Base",
     "BusinessEvent",
+    "AnnouncementRecord",
     "ContentFetchAttempt",
     "DailyReview",
     "DailyReviewItem",
     "DailyReviewVersion",
+    "ExternalSource",
+    "InformationIngestionLink",
     "InformationAnalysisVersion",
     "InformationContent",
     "InformationEntityMention",
@@ -46,8 +57,11 @@ __all__ = [
     "Notification",
     "NotificationDelivery",
     "NotificationPreference",
+    "ProviderSyncRun",
+    "ProviderSyncState",
     "Stock",
     "User",
+    "UserAnnouncementCandidate",
     "UserCredential",
     "UserSession",
     "UserTag",

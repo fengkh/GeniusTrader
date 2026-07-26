@@ -42,7 +42,7 @@ from app.services.html_extraction import extract_text_from_html, normalize_white
 from app.services.notifications import create_business_event
 
 ANALYSIS_SCHEMA_VERSION = "information-analysis-v1"
-ANALYSIS_PROMPT_VERSION = "information-analysis-prompt-v7"
+ANALYSIS_PROMPT_VERSION = "information-analysis-prompt-v8"
 
 
 def content_hash(value: str) -> str:
@@ -766,6 +766,11 @@ def _analysis_contract_text() -> str:
         "- For unverified, single-source, simulated, rumor-like, or forecast-heavy materials, limitations should usually contain 3 to 6 concrete items covering missing official documents, limited source base, inability to externally verify, predictive content, and missing operational details.\n"
         "- stock_mentions should include explicitly mentioned stock names or symbols. For exchange-qualified symbols like 600519.SH, put symbol as 600519 and name when present.\n"
         "- If a company is mentioned without a real stock code or known stock name, leave stock_mentions empty and add a company entity mention.\n"
+        "- For source_type=announcement, treat provider_document content as source material, but do not add facts, amounts, dates, parties, market data, financial data, or conclusions not present in the supplied text.\n"
+        "- If an announcement item says it is metadata_only or lacks extracted PDF text, do not write or infer the missing announcement body; limitations must state that only metadata is available.\n"
+        "- Source tier and authority level describe the source registry only; never use them by themselves to decide sentiment, good news, bad news, or investment impact.\n"
+        "- Announcement title classification is not a complete fact record and is never an investment judgment.\n"
+        "- Correction announcements must be distinguished from original announcements when the input says so.\n"
         "- Never turn unverified events into confirmed facts, never invent market data, and never provide trading advice.\n\n"
         "Concise output limits:\n"
         "- Start the response with '{' and output JSON only; do not output reasoning, markdown, prefaces, or explanations.\n"

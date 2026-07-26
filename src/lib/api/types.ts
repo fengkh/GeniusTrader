@@ -22,6 +22,51 @@ export interface ApiMessage {
   message: string;
 }
 
+export interface ExternalSource {
+  id: UUID;
+  source_code: string;
+  display_name: string;
+  publisher_name: string;
+  source_category: string;
+  authority_level: string;
+  source_tier: string;
+  jurisdiction: string | null;
+  country_code: string | null;
+  region_code: string | null;
+  city_code: string | null;
+  official_domain: string | null;
+  access_mode: string;
+  content_language: string;
+  provider_adapter: string | null;
+  authorization_status: string;
+  redistribution_status: string;
+  commercial_use_status: string;
+  legal_review_status: string;
+  health_status: string;
+  enabled: boolean;
+  experimental: boolean;
+  limitations: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnouncementProvider {
+  source_code: string;
+  provider_adapter: string;
+  implemented: boolean;
+  enabled_by_config: boolean;
+  experimental: boolean;
+  experimental_limited: boolean;
+  capabilities: string[];
+  limitations: string[];
+}
+
+export interface FutureSourceGroup {
+  group: string;
+  examples: string[];
+  status: string;
+}
+
 export interface LoginResponse {
   user: CurrentUser;
   must_change_password: boolean;
@@ -184,6 +229,139 @@ export interface StockRead {
   data_source: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface WatchlistGroupRead {
+  id: UUID;
+  name: string;
+  sort_order: number;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserTagRead {
+  id: UUID;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WatchlistItemRead {
+  id: UUID;
+  stock: StockRead;
+  group: WatchlistGroupRead | null;
+  tags: UserTagRead[];
+  attention_reason: string | null;
+  notes: string | null;
+  sort_order: number;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProviderSyncRun {
+  id: UUID;
+  external_source_id: UUID;
+  capability: string;
+  triggered_by_user_id: UUID;
+  status: string;
+  date_from: string;
+  date_to: string;
+  requested_symbols: string[];
+  request_count: number;
+  success_count: number;
+  failure_count: number;
+  record_count: number;
+  candidate_count: number;
+  created_record_count: number;
+  updated_record_count: number;
+  duplicate_record_count: number;
+  error_code: string | null;
+  error_summary: string | null;
+  metrics: Record<string, unknown>;
+  provider_metadata: Record<string, unknown>;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  experimental_notice: string;
+}
+
+export interface AnnouncementCandidateSummary {
+  id: UUID;
+  announcement_record_id: UUID;
+  sync_run_id: UUID | null;
+  status: string;
+  match_type: string;
+  matched_stock_id: UUID | null;
+  matched_watchlist_item_id: UUID | null;
+  title: string;
+  announcement_type: string;
+  announcement_type_confidence: number;
+  published_at: string | null;
+  company_name: string | null;
+  stock_symbols: string[];
+  source_code: string;
+  source_display_name: string;
+  source_tier: string;
+  authorization_status: string;
+  data_completeness: string;
+  missing_fields: string[];
+  is_pdf: boolean;
+  document_url: string | null;
+  document_extract_status: string;
+  document_page_count: number | null;
+  document_character_count: number | null;
+  created_at: string;
+  updated_at: string;
+  experimental_notice: string;
+}
+
+export interface AnnouncementCandidateDetail extends AnnouncementCandidateSummary {
+  normalized_title: string;
+  announcement_type_basis: Record<string, unknown>;
+  exchange: string | null;
+  source_page_url: string;
+  attachment_urls: string[];
+  is_correction: boolean;
+  corrected_announcement_id: string | null;
+  raw_metadata_hash: string;
+  deduplication_key: string;
+  fetched_at: string;
+  first_seen_at: string;
+  last_seen_at: string;
+  source_authority_level: string;
+  source_access_mode: string;
+  redistribution_status: string;
+  commercial_use_status: string;
+  legal_review_status: string;
+  source_limitations: string[];
+  match_evidence: Record<string, unknown>;
+  document_extracted_at: string | null;
+  document_limitations: string[];
+  reviewed_at: string | null;
+  dismissed_at: string | null;
+  imported_at: string | null;
+  information_item_id: UUID | null;
+  detail_notice: string;
+}
+
+export interface AnnouncementDocumentExtractResult {
+  candidate_id: UUID;
+  document_extract_status: string;
+  document_extracted_at: string | null;
+  page_count: number | null;
+  character_count: number | null;
+  limitations: string[];
+  experimental_notice: string;
+}
+
+export interface AnnouncementImportResult {
+  candidate_id: UUID;
+  information_item_id: UUID;
+  import_mode: string;
+  already_imported: boolean;
+  created_at: string;
 }
 
 export type DailyReviewStatus = "complete" | "partial" | "empty" | "failed" | "stale";

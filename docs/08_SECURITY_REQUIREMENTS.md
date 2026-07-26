@@ -1,5 +1,17 @@
 # 安全要求
 
+## 第六阶段补充：公告来源安全边界
+
+- 公告同步、真实网络、具体 Provider 和 PDF 提取均必须由后端功能开关控制，默认关闭。
+- production 环境必须阻止真实公告网络同步，即使配置误开也不得放行。
+- 前端不得直接访问第三方公告来源，所有请求必须经过后端 Provider。
+- Provider 请求不得使用第三方用户 Cookie、登录态、代理、浏览器自动化、验证码绕过、付费墙绕过、Playwright 或 Selenium。
+- PDF 提取只允许公开 HTTP/HTTPS URL，并执行 SSRF、重定向、域名、大小、Content-Type、签名和页数限制。
+- 不得长期保存原始 PDF，不得提供本地 PDF 再下载，不得在 API 错误、日志或审计中输出完整 PDF 文本。
+- 日志不得记录完整 Provider 响应、完整网页正文、Cookie、Session Token、AI Key、`APP_ENCRYPTION_KEYS`、数据库密码或第三方敏感 Header。
+- 公告候选、同步运行、提取和导入操作必须按用户隔离，管理员通过普通用户 API 也不得越权读取其他用户候选。
+- `.local/announcement.env` 仅用于本地实验配置，必须被 Git 忽略，真实内容不得输出到对话、日志或可提交文件。
+
 GeniusTrader 当前 GitHub 仓库按公开仓库处理，所有文档、配置和未来代码都必须遵守本文件。
 
 ## 密钥与敏感配置
