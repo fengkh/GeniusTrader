@@ -20,7 +20,8 @@ async def test_stock_list_and_detail(client, db_session):
     listed = await client.get("/api/v1/stocks", params={"q": "茅台"})
     assert listed.status_code == 200
     assert listed.json()["data"]["total"] == 1
-    assert listed.json()["data"]["items"][0]["symbol"] == "600519"
+    assert listed.json()["data"]["items"][0]["symbol"] == "600519.SH"
+    assert listed.json()["data"]["items"][0]["code"] == "600519"
     assert "marketSnapshot" not in listed.text
 
     detail = await client.get(f"/api/v1/stocks/{stock.id}")

@@ -673,7 +673,10 @@ async def _selected_watchlist(
 
 
 def _stock_symbol(stock: Stock) -> str:
-    return f"{stock.symbol}.{stock.exchange}".upper()
+    symbol = stock.symbol.upper()
+    if "." in symbol:
+        return symbol
+    return f"{symbol}.{stock.exchange}".upper()
 
 
 async def _persist_provider_result(

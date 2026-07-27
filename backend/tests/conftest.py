@@ -24,6 +24,8 @@ LOCAL_DATABASE_ENV = REPO_ROOT / ".local" / "database.env"
 TRUNCATE_TABLES = [
     "audit_logs",
     "information_ingestion_links",
+    "security_source_records",
+    "security_master_sync_runs",
     "user_announcement_candidates",
     "announcement_records",
     "provider_sync_states",
@@ -82,6 +84,12 @@ os.environ["ANNOUNCEMENT_REAL_NETWORK_ENABLED"] = "false"
 os.environ["ANNOUNCEMENT_CNINFO_ENABLED"] = "false"
 os.environ["ANNOUNCEMENT_SSE_ENABLED"] = "false"
 os.environ["ANNOUNCEMENT_DOCUMENT_EXTRACTION_ENABLED"] = "false"
+os.environ["SECURITY_MASTER_SYNC_ENABLED"] = "false"
+os.environ["SECURITY_MASTER_REAL_NETWORK_ENABLED"] = "false"
+os.environ["SECURITY_MASTER_SSE_ENABLED"] = "false"
+os.environ["SECURITY_MASTER_SZSE_ENABLED"] = "false"
+os.environ["SECURITY_MASTER_BSE_ENABLED"] = "false"
+os.environ["SECURITY_MASTER_BAOSTOCK_ENABLED"] = "false"
 
 
 def _test_database_available() -> bool:
@@ -195,12 +203,31 @@ async def create_user(session, *, username: str, password: str, role: str = "use
 
 async def seed_stock(session, *, symbol: str = "600519", exchange: str = "SH", name: str = "贵州茅台"):
     from app.models.stock import Stock
+    from app.providers.securities.normalization import normalize_board, normalize_symbol, pinyin_fields
+
+    code = symbol.split(".", 1)[0]
+    full_symbol = symbol if "." in symbol else normalize_symbol(code, exchange)
+    pinyin, initials = pinyin_fields(name)
 
     stock = Stock(
-        symbol=symbol,
+        symbol=full_symbol,
+        code=code,
         exchange=exchange,
         name=name,
         market="A_SHARE",
+        board=normalize_board(None, exchange=exchange, code=code),
+        security_type="common_stock",
+        short_name=name,
+        full_name=name,
+        listing_status="active",
+        listed_at=None,
+        aliases=[name],
+        pinyin=pinyin,
+        pinyin_initials=initials,
+        source_code="test_seed",
+        source_record_id=full_symbol,
+        data_completeness="usable",
+        is_searchable=True,
         list_status="listed",
         currency="CNY",
         data_source="test_seed",

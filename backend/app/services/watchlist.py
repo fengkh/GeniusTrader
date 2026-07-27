@@ -108,15 +108,24 @@ async def create_watchlist_item(
     stock = await get_stock_by_id(session, stock_id)
     if not stock:
         raise AppError(ErrorCode.STOCK_NOT_FOUND, "股票不存在", status_code=404)
+    if not stock.is_searchable:
+        raise AppError(ErrorCode.STOCK_NOT_FOUND, "股票暂不可加入自选股", status_code=404)
     group = await ensure_group(session, user_id=user_id, group_id=group_id)
     tags = await ensure_tags(session, user_id=user_id, tag_ids=tag_ids)
     active = await get_active_item_by_stock(session, user_id=user_id, stock_id=stock_id)
     if active:
-        raise AppError(
-            ErrorCode.WATCHLIST_ITEM_ALREADY_EXISTS,
-            "该股票已在自选股中",
-            status_code=409,
+        active_id = active.id
+        await add_audit_log(
+            session,
+            actor_user_id=user_id,
+            action="watchlist.duplicate_add",
+            target_type="watchlist_item",
+            target_id=active_id,
+            result="success",
+            request_id=request_id,
         )
+        await session.commit()
+        return await get_item_or_404(session, user_id=user_id, item_id=active_id)
     if await count_active_items(session, user_id) >= WATCHLIST_LIMIT:
         raise AppError(ErrorCode.WATCHLIST_LIMIT_EXCEEDED, "自选股数量已达到上限", status_code=429)
 

@@ -1,8 +1,22 @@
 # MVP 验收标准草案
 
+## 第六阶段前置子阶段 6A：证券主数据与真实自选股验收项
+
+- 当前 Alembic head 为 `202607230006`，迁移可在开发库升级，并在测试库 downgrade 后重新 upgrade。
+- `stocks` 保留稳定 `id`，新增 `code`、全局唯一 `symbol`、唯一 `exchange + code`、板块、证券类型、上市状态、历史简称、拼音、来源、最后同步时间、完整度和 `is_searchable`。
+- 现有开发种子保留 `stock.id`，通过 legacy `data_source=development_seed` 保留原始迁移来源；真实来源同步相同 `symbol` 时更新原记录当前主数据字段和 `source_code`，不重复创建。
+- `SecurityMasterProvider` 至少覆盖 SSE、SZSE、BSE 候选来源和 BaoStock 开发补充，自动测试使用 Mock 或 fixture，不访问真实网络。
+- 管理员可在 `/settings/security-master` 查看证券目录状态和手动触发同步；普通用户不能同步；production 默认阻止真实网络同步；CSRF 必须生效。
+- 同步失败、来源不可用、字段不足或网络失败不得清空既有 `stocks`，不得自动修改用户自选股、触发公告同步、AI、BusinessEvent 或通知。
+- `GET /api/v1/stocks/search` 只查本地 `stocks`，支持代码、完整 `symbol`、简称、公司全称、拼音、拼音首字母和历史简称；`q` 为空不返回全量目录。
+- `/watchlist` 接真实 API，用户只能通过已存在且可搜索的 `stock_id` 添加自选股，不能创建不存在股票。
+- 自选股重复添加幂等，200 只上限、分组、标签、关注原因、移除、重新添加和用户隔离均有效。
+- 页面必须显示“证券基本信息来自证券目录同步；行情、财务、估值和技术指标仍未接入真实数据。”
+- 公告匹配可以读取真实 `stock.id`，不依赖硬编码 4 只开发种子；当前阶段仍不继续公告真实 Smoke。
+
 ## 第六阶段补充：公告候选收件箱验收项
 
-- Alembic head 为 `202607230005`，迁移可在测试库 downgrade 到 base 后重新 upgrade。
+- 第六阶段公告试点迁移为 `202607230005`；6A 之后当前 head 为 `202607230006`。
 - `external_sources` 至少幂等注册 `CNINFO` 和 `SSE_DISCLOSURE`，二者默认 `enabled=false`、`experimental=true`，授权和商业使用状态不得默认 approved。
 - 未实现来源不得显示为可用 Provider。
 - 公告同步、真实网络、CNINFO、SSE 和 PDF 提取默认关闭。
@@ -78,6 +92,19 @@
 | AC-54 | 后端审计和脱敏 | 管理员创建用户、登录、退出、修改密码、自选股、分组和标签关键操作写入审计日志，且不包含密码、临时密码、Session Token、Cookie 或数据库密码 | 审计 metadata 保存完整临时密码或 Session Token |
 | AC-55 | 后端迁移和测试数据库隔离 | Alembic 升级成功；回滚验证只在 `geniustrader_test` 等明确测试库执行；测试不得清空开发库 | 为了跑测试直接 truncate 或 drop 开发库 `geniustrader` |
 | AC-56 | 后端股票基础目录边界 | 股票基础 API 只返回本地 `stocks` 表基础信息，不返回行情、K线、板块、估值或 AI 结果 | 后端第一阶段硬编码真实行情 Provider 或返回模拟行情为真实数据 |
+| AC-57 | 证券主数据同步 | 管理员可手动同步候选证券目录来源，sync run 记录来源、状态、接收/新增/更新/不变/失败统计；失败不清空既有 `stocks` | 同步失败后删除已有股票，或普通用户可触发同步 |
+| AC-58 | 本地股票搜索 | 搜索支持代码、完整 `symbol`、简称、公司全称、拼音、拼音首字母和历史简称；`q` 为空不返回全量；默认只返回可搜索 A 股普通股票 | 用户搜索时请求第三方，或返回 ETF、债券、B 股等非 MVP 证券 |
+| AC-59 | 真实自选股添加 | `/watchlist` 添加只提交 `stock_id`；不存在或不可搜索股票被拒绝；重复添加幂等；200 只上限有效 | 前端允许手写不存在股票，或重复添加创建多条记录 |
+| AC-60 | 证券目录页面边界 | `/settings/security-master` 仅管理员可见，显示证券目录统计、来源、最近同步和数据缺口；明确不代表实时行情接入 | 管理员页面变成运维系统、自动调度器或行情 Provider 配置中心 |
+
+## 2026-07-26 6A.1 收口验收补充
+
+- SSE 小样本同步不得标记为 `complete`；必须通过主板、科创板数量和 `600519.SH`、`688981.SH` 探针完整度门槛。
+- SZSE 官方目录若返回 HTTP 500 / HTML 错误页，必须记录 `network_error`，不得清空已有 `stocks`，不得宣称官方深市来源已可用。
+- BSE 当前代码以 920 前缀 `.BJ` 为准，旧代码只能作为 alias / previous symbol；新旧代码不得生成两个 `stock.id`。
+- `BAOSTOCK_DEVELOPMENT_FALLBACK` 只能在 development 环境显式启用，production 和非 development 环境默认阻止；它可以补足本地产品验收，但不得覆盖更高优先级官方来源字段。
+- `/watchlist` 验收必须覆盖真实本地目录搜索、添加、分组、标签、关注原因、移除、重新添加、重复添加幂等、用户隔离，以及桌面端和 390x844 移动端布局。
+| AC-61 | 证券主数据与公告衔接 | 公告匹配读取真实 `stocks` 和当前用户自选股，不依赖硬编码 4 只种子，不创建虚假股票 | CNINFO 代码匹配失败时自动创建未知股票，或非当前用户自选股生成候选 |
 
 ## 后端第一阶段收尾验收记录
 
@@ -121,7 +148,7 @@
 - `/information/[itemId]` 可查看来源、当前正文版本、AI 分析版本、实体提及、待核实事项和股票关联；正文以纯文本展示。
 - 用户可确认或拒绝 AI suggested 股票关联，并可手动新增 confirmed 股票关联。
 - AI Provider 未配置、AI 调用失败或结构校验失败时，不影响信息条目来源、正文、人工关联和列表查看。
-- `/today`、`/watchlist`、`/watchlist/[stockId]` 和 `/market-review/[date]` 在本阶段仍保持 Mock，不作为真实 API 联调验收项。
+- `/today`、`/watchlist/[stockId]` 和 `/market-review/[date]` 在本阶段仍保持 Mock，不作为真实 API 联调验收项；6A 起 `/watchlist` 自选股管理接真实 API，但不包含真实行情、K线、财务、估值或技术指标。
 
 ## 第四阶段复盘与站内通知新增验收项
 

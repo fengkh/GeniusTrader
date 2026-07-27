@@ -44,13 +44,13 @@ async def test_groups_tags_and_watchlist_crud(client, db_session):
     )
     assert added.status_code == 201
     item = added.json()["data"]
-    assert item["stock"]["symbol"] == "600519"
+    assert item["stock"]["symbol"] == "600519.SH"
     assert item["group"]["id"] == group_id
     assert len(item["tags"]) == 1
 
     duplicate = await client.post("/api/v1/watchlist", json={"stock_id": str(stock.id)})
-    assert duplicate.status_code == 409
-    assert duplicate.json()["error"]["code"] == "WATCHLIST_ITEM_ALREADY_EXISTS"
+    assert duplicate.status_code == 201
+    assert duplicate.json()["data"]["id"] == item["id"]
 
     listed = await client.get("/api/v1/watchlist", params={"q": "验证"})
     assert listed.status_code == 200
@@ -141,10 +141,21 @@ async def test_watchlist_limit(client, db_session):
     stocks = []
     for index in range(201):
         stock = Stock(
-            symbol=f"{index:06d}",
+            symbol=f"{index:06d}.SZ",
+            code=f"{index:06d}",
             exchange="SZ",
             name=f"测试股票{index}",
             market="A_SHARE",
+            board="main_board",
+            security_type="common_stock",
+            short_name=f"测试股票{index}",
+            full_name=f"测试股票{index}",
+            listing_status="active",
+            aliases=[f"测试股票{index}"],
+            source_code="test_seed",
+            source_record_id=f"{index:06d}.SZ",
+            data_completeness="usable",
+            is_searchable=True,
             list_status="listed",
             currency="CNY",
             data_source="test_seed",

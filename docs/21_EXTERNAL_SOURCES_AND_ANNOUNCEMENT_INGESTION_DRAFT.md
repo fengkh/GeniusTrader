@@ -4,6 +4,12 @@
 
 本文记录第六阶段“外部信息源基础架构与上市公司公告候选收件箱试点”的产品和技术基线。当前能力仅为实验性试点，不代表任何数据源已经成为 V1 正式生产 Provider。
 
+## 6A 前置补充：证券主数据与真实自选股
+
+2026-07-26 真实 CNINFO 低频 Smoke 返回 `network_error`，未产生真实候选、未导入 InformationItem，也未触发 AI 或通知。后续公告真实 Smoke、候选 PDF、公告导入和公告 AI 闭环补验，必须等待 A 股证券主数据与真实自选股闭环完成后再继续。
+
+公告股票匹配必须读取真实 `stocks` 和当前用户自选股，不得依赖硬编码 4 只开发种子，不得在匹配失败时创建虚假股票。证券目录同步本身不得自动触发公告同步、AI 分析、BusinessEvent 或 Notification。
+
 所有公告相关页面必须显示：
 
 ```text
@@ -634,3 +640,6 @@ AI 不得：
 - 导入后由用户主动触发既有 AI 分析闭环。
 
 因此，CNINFO 当前仍是实验候选来源，不是已冻结的 V1 生产数据供应商；第六阶段不得写成已经完成真实 Provider 端到端产品验收。
+## 2026-07-26 6A.1 前置收口状态
+
+证券目录前置闭环已形成本地可用目录：SH 来自 `SSE_SECURITY_MASTER`，BJ 来自 `BSE_SECURITY_MASTER` 官方新旧代码对照表，SZ 由非官方 `BAOSTOCK_DEVELOPMENT_FALLBACK` 在 development 环境补足。`SZSE_SECURITY_MASTER` 官方接口仍为 HTTP 500 / `network_error`，Provider 未冻结。公告真实 Smoke、真实候选、PDF、导入和 AI 闭环仍等待 `/watchlist` 真实页面人工验收后恢复，不得在本阶段继续扩大。

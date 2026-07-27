@@ -1,10 +1,10 @@
 # 后端架构草案
 
-本文记录 GeniusTrader 正式后端工程边界。第一阶段实现账户认证、自选股基础闭环、股票基础目录、数据库迁移、日志和审计基础；第二阶段补充受控信息采集、AI Provider、AI Gateway 和结构化信息分析；第四阶段补充用户每日复盘、业务事件和站内通知。当前仍不实现真实行情 Provider、真实公告资讯 Provider、估值后端、全市场真实复盘、自动调度、任务队列、微信或 Docker。
+本文记录 GeniusTrader 正式后端工程边界。第一阶段实现账户认证、自选股基础闭环、股票基础目录、数据库迁移、日志和审计基础；第二阶段补充受控信息采集、AI Provider、AI Gateway 和结构化信息分析；第四阶段补充用户每日复盘、业务事件和站内通知；6A 补充证券主数据同步、本地股票搜索和真实自选股管理。当前仍不实现真实行情 Provider、正式公告资讯 Provider、估值后端、全市场真实复盘、自动调度、任务队列、微信或 Docker。
 
 ## 架构边界
 
-- 前端与后端分离。现有 Next.js Mock 前端仍使用本地 Mock 数据，不会自动连接后端 API。
+- 前端与后端分离。现有 Next.js 前端按阶段连接本地后端 API；尚未真实接入的今日、个股详情行情、全市场复盘、估值和微信区域继续使用 Mock 或未来边界。
 - 后端使用 FastAPI 提供 `/api/v1` HTTP API。
 - 数据库使用 PostgreSQL，本地开发配置来自仓库根目录 `.local/database.env` 或环境变量。
 - 数据库结构变更只通过 Alembic 迁移，应用启动时不自动建表或改表。
@@ -157,7 +157,7 @@ Repository 查询不得先按资源 ID 查出记录后再在 Python 判断归属
 - `POST`、`PUT`、`PATCH` 和 `DELETE` 写请求必须携带 `X-CSRF-Token`，并与 CSRF Cookie 及数据库哈希匹配。
 - `GET`、`HEAD`、`OPTIONS` 不要求 CSRF；`POST /api/v1/auth/login` 不要求已有 CSRF，但校验请求 `Origin` 是否在 CORS 允许列表内。
 - `POST /api/v1/auth/logout` 吊销 Session，并清理 Session Cookie 和 CSRF Cookie。
-- 当前前端真实消费 `/api/v1/auth`、`/api/v1/ai/providers`、`/api/v1/information`、`/api/v1/stocks`、`/api/v1/reviews`、`/api/v1/notifications` 和 `/api/v1/notification-preferences`；今日、自选股、个股详情、全市场复盘、估值和微信区域仍保持 Mock。
+- 当前前端真实消费 `/api/v1/auth`、`/api/v1/ai/providers`、`/api/v1/information`、`/api/v1/stocks`、`/api/v1/security-master`、`/api/v1/watchlist`、`/api/v1/reviews`、`/api/v1/notifications` 和 `/api/v1/notification-preferences`；今日、个股详情、全市场复盘、估值和微信区域仍保持 Mock 或未来边界。`/watchlist` 已接真实自选股 API，但行情、K线、财务、估值和技术指标仍未接入真实数据。
 
 ## 第四阶段后端补充
 

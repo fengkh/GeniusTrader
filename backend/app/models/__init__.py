@@ -28,6 +28,7 @@ from app.models.review_notification import (
     NotificationDelivery,
     NotificationPreference,
 )
+from app.models.security_master import SecurityMasterSyncRun, SecuritySourceRecord
 from app.models.session import UserSession
 from app.models.stock import Stock
 from app.models.tag import UserTag, WatchlistItemTag
@@ -59,6 +60,8 @@ __all__ = [
     "NotificationPreference",
     "ProviderSyncRun",
     "ProviderSyncState",
+    "SecurityMasterSyncRun",
+    "SecuritySourceRecord",
     "Stock",
     "User",
     "UserAnnouncementCandidate",

@@ -161,7 +161,10 @@ async def list_items(
         like = f"%{q.strip()}%"
         q_filter = or_(
             Stock.symbol.ilike(like),
+            Stock.code.ilike(like),
             Stock.name.ilike(like),
+            Stock.short_name.ilike(like),
+            Stock.full_name.ilike(like),
             UserWatchlistItem.attention_reason.ilike(like),
             UserWatchlistItem.notes.ilike(like),
         )

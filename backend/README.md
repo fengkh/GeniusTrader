@@ -1,14 +1,20 @@
 # GeniusTrader Backend
 
+## Backend Phase 6A Scope Note
+
+The backend 6A pre-stage adds A-share security master data and real watchlist management on top of the existing local API. It introduces `SecurityMasterProvider`, `security_master_sync_runs`, `security_source_records`, expanded `stocks` fields, local stock search, and admin-only manual security-directory sync. SSE, SZSE, and BSE are candidate official security-directory sources behind development feature flags; BaoStock is a non-official development supplement only.
+
+This stage does not add real market quotes, minute bars, K-lines, financial statements, valuation, automatic security-directory scheduling, automatic announcement sync, WeChat, or trading. `/watchlist` now manages real user watchlist records against local `stocks`; stock detail and quote-heavy pages can still remain Mock until real market data is selected.
+
 ## Backend Phase 6 Scope Note
 
 The backend sixth phase adds external source registry tables, provider sync run/state tables, shared announcement records, user-private announcement candidates, and idempotent announcement-to-InformationItem ingestion links. The only implemented adapters are experimental CNINFO and limited SSE disclosure adapters, both guarded by source status and feature flags. `.local/announcement.env` is loaded for local-only experiment flags and must remain ignored by Git.
 
 New runtime dependency: `pypdf`, used only for user-triggered, opt-in PDF text extraction. The backend must not store original PDF files, return PDF text in errors, use cookies/proxies/browser automation, scan the full market, schedule background jobs, auto-import announcements, auto-run AI, or auto-create notifications from candidates.
 
-FastAPI 后端已经覆盖基础工程、PostgreSQL 迁移、数据库 Session 认证、管理员创建用户、股票基础目录、用户自选股基础闭环、受控信息采集、AI Gateway、结构化信息分析、用户每日复盘、业务事件和站内通知。
+FastAPI 后端已经覆盖基础工程、PostgreSQL 迁移、数据库 Session 认证、管理员创建用户、股票基础目录、证券主数据同步、用户真实自选股基础闭环、受控信息采集、AI Gateway、结构化信息分析、用户每日复盘、业务事件和站内通知。
 
-当前不包含真实行情 Provider、公告资讯 Provider、估值后端、全市场真实复盘、自动调度、任务队列、微信、邮件、Web Push、移动 Push、Docker 或生产部署。
+当前不包含真实行情 Provider、正式公告资讯 Provider、估值后端、全市场真实复盘、自动调度、任务队列、微信、邮件、Web Push、移动 Push、Docker 或生产部署。
 
 ## Windows PowerShell 本地运行
 
@@ -112,7 +118,7 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 - 后端 API：`http://127.0.0.1:8000`
 - PostgreSQL：`127.0.0.1:5432`
 
-前端 `/login`、`/information`、`/information/[itemId]`、`/settings/ai`、`/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分连接本地后端。`/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心和微信公众号区域仍保持 Mock。
+前端 `/login`、`/information`、`/information/[itemId]`、`/settings/ai`、`/reviews`、`/reviews/[reviewId]`、`/notifications`、`/settings/notifications` 的站内通知部分和 `/watchlist` 连接本地后端。`/today`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心和微信公众号区域仍保持 Mock 或未来边界。
 
 ## API 边界
 
@@ -141,9 +147,21 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 ### 股票基础目录
 
 - `GET /api/v1/stocks`
+- `GET /api/v1/stocks/search`
 - `GET /api/v1/stocks/{stock_id}`
+- `GET /api/v1/security-master/status`
 
-只返回本地 `stocks` 表基础信息，不返回行情、K线、板块、估值或 AI 结果。
+只返回本地 `stocks` 表基础信息，不返回行情、K线、板块、估值或 AI 结果。搜索只查询本地数据，`q` 为空时不返回全量证券目录；默认只返回可搜索的 A 股普通股票。
+
+### 管理员证券目录
+
+- `GET /api/v1/security-master/providers`
+- `POST /api/v1/admin/security-master/sync`
+- `GET /api/v1/admin/security-master/sync-runs`
+
+2026-07-26 6A.1：`SSE_SECURITY_MASTER` 支持上交所主板和科创板分页同步；`BSE_SECURITY_MASTER` 使用北交所官方新旧代码对照表；`BAOSTOCK_DEVELOPMENT_FALLBACK` 是可选、默认关闭、仅 development 可用的非官方补充来源。`SZSE_SECURITY_MASTER` 真实访问仍为 HTTP 500 / `network_error`，不得标记为已冻结官方来源。
+
+证券目录同步仅限管理员、development 环境和显式功能开关；production 默认阻止真实网络同步。同步失败不得清空既有 `stocks`，也不得自动修改用户自选股、触发公告同步、AI 分析、BusinessEvent 或通知。
 
 ### 自选股、分组和标签
 
@@ -164,6 +182,8 @@ $env:PYTHONPYCACHEPREFIX = Join-Path $env:TEMP "geniustrader-backend-pycache"
 `DELETE /api/v1/watchlist/{item_id}` 采用归档策略，设置 `archived_at`，不删除 `stocks` 或用户标签。归档后重新 `POST` 同一股票会恢复原记录，使用新的分组、关注原因、备注和标签，不创建第二条重复记录。
 
 已归档自选股默认不允许 `PATCH` 修改。重复删除已归档记录保持幂等；跨用户 UUID 不会泄露真实归属。
+
+添加自选股时客户端只能提交 `stock_id`，不能提交股票代码或名称来创建股票。`stock_id` 必须存在且 `is_searchable=true`；同一用户同一股票重复添加保持幂等，用户隔离和 200 只上限继续有效。
 
 ### 用户每日复盘
 

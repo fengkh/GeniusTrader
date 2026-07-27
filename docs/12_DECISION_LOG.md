@@ -1,5 +1,16 @@
 # 产品决策日志
 
+## 2026-07-26 第六阶段前置子阶段 6A 证券主数据与真实自选股决策
+
+| 编号 | 决策 | 原因 | 影响范围 | 状态 | 日期 | 复审时机 |
+| --- | --- | --- | --- | --- | --- | --- |
+| D-065 | 在继续公告真实 Smoke 前，先建立 A 股证券主数据和真实自选股闭环 | 公告匹配依赖真实 `stock.id` 和用户真实自选股，不能继续依赖 4 只开发种子 | 证券目录、自选股、公告匹配、路线图 | 已确认 | 2026-07-26 | 6A 人工验收后 |
+| D-066 | MVP 证券目录默认仅覆盖沪深京 A 股普通股票，暂不纳入 B 股、ETF、LOF、REITs、债券、可转债、期权、指数、港股、美股和新三板非北交所证券 | 控制第一版范围和搜索噪音，避免把非股票资产误纳入复盘闭环 | `stocks`、搜索、自选股、文档 | 已确认 | 2026-07-26 | 真实用户需要非普通股票时 |
+| D-067 | 证券目录来源采用 `SecurityMasterProvider` 抽象；SSE/SZSE/BSE 为官方候选，BaoStock 仅开发补充，不冻结生产 Provider | 保持来源可替换和供应商中立，避免把免费或公开接口写成正式授权来源 | Provider、数据来源矩阵、开放问题 | 已确认 | 2026-07-26 | 授权和稳定性确认后 |
+| D-068 | 证券目录同步只允许管理员在 development 环境人工触发，不创建自动调度 | 降低外部依赖、频率控制和运维复杂度 | 管理员设置、安全、同步运行 | 已确认 | 2026-07-26 | 生产化或自动调度评审前 |
+| D-069 | 用户添加自选股只能引用本地 `stock_id`，不得通过代码或名称创建不存在股票；重复添加保持幂等 | 保证自选股引用可追溯主数据，避免虚假股票进入公告和复盘链路 | 自选股 API、前端 `/watchlist`、验收 | 已确认 | 2026-07-26 | CSV 真实导入开发前 |
+| D-070 | 证券目录同步不得自动触发公告同步、AI 分析、BusinessEvent 或通知 | 6A 仅建立前置主数据，不扩大到公告和通知闭环 | 公告、AI、通知、路线图 | 已确认 | 2026-07-26 | 恢复公告真实 Smoke 前 |
+
 ## 2026-07-24 第六阶段外部来源与公告候选试点决策
 
 | 编号 | 决策 | 原因 | 影响范围 | 状态 | 日期 | 复审时机 |
@@ -75,7 +86,7 @@
 ## 2026-07-23 前端第三阶段决策
 
 - 决策：`/login`、`/information`、`/information/[itemId]` 和 `/settings/ai` 进入真实本地后端 API 联调。
-- 决策：`/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、`/reviews`、`/notifications` 和 `/settings/notifications` 本阶段继续保持 Mock。
+- 决策：第三阶段当时 `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、`/reviews`、`/notifications` 和 `/settings/notifications` 继续保持 Mock；后续阶段已分别接入 `/reviews`、通知和 `/watchlist` 真实 API。
 - 决策：前端统一 API client 使用 `NEXT_PUBLIC_API_BASE_URL`、`credentials: "include"` 和 `X-CSRF-Token`，不使用 localStorage 或 sessionStorage 保存 Session、密码或 AI Key。
 - 决策：后端 Session 增加 CSRF 绑定；登录发放独立 CSRF Cookie，写请求校验 `X-CSRF-Token`，退出同时清理 Session 与 CSRF Cookie。
 - 决策：AI Provider 页面不显示完整 API Key，测试连接只通过后端 AI Gateway 执行，不在浏览器端直连第三方 AI。
@@ -88,7 +99,7 @@
 | D-050 | 复盘先由程序生成 `rule_snapshot`，AI 只解释该快照，失败后保留规则复盘 | 保证事实、观点、传闻和来源可追溯，避免 AI 编造事实 | AI Gateway、复盘版本、安全 | 已确认 | 2026-07-24 | 复盘 Schema 需要升级时 |
 | D-051 | 用户每日复盘采用 `input_fingerprint` 幂等和 `stale` 状态，不自动覆盖旧版本 | 防止重复 AI 调用和历史版本丢失 | 复盘服务、版本管理、前端详情 | 已确认 | 2026-07-24 | 引入异步任务或自动调度时 |
 | D-052 | 当前真实通知只实现 `in_app`，`daily_digest` 表示不创建单条即时通知，不代表已实现定时摘要 | 控制外部通道、调度和隐私复杂度 | 通知偏好、通知中心、设置页 | 已确认 | 2026-07-24 | 外部推送或摘要调度方案确认前 |
-| D-053 | `/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分接真实 API；今日、自选股、个股详情、全市场复盘、估值和微信区域继续 Mock | 分阶段联调真实闭环，同时避免扩大行情/估值/微信范围 | 前端路由、页面架构、验收 | 已确认 | 2026-07-24 | 下一阶段进入行情、估值或外部通知开发前 |
+| D-053 | 第四阶段将 `/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分接真实 API；当时今日、自选股、个股详情、全市场复盘、估值和微信区域继续 Mock | 分阶段联调真实闭环，同时避免扩大行情/估值/微信范围 | 前端路由、页面架构、验收 | 已确认 | 2026-07-24 | 下一阶段进入行情、估值或外部通知开发前 |
 
 ## 2026-07-24 第五阶段公告与资讯 Provider Spike 决策
 
@@ -99,3 +110,11 @@
 | D-056 | 深交所、北交所本轮公告样本不足，保留为待验证来源 | 本轮公开请求未验证稳定列表、股票关系和 PDF 字段覆盖 | 公告覆盖范围、北交所支持、开放问题 | 已确认 | 2026-07-24 | 二次 Spike 或采购聚合源评估时 |
 | D-057 | 自动财经资讯采集不进入当前 MVP 冻结范围，继续以用户手动 URL 和补充文本为主 | 公开资讯网页结构和版权边界不稳定，高于公告元数据风险 | 信息中心、每日复盘材料、合规边界 | 已确认 | 2026-07-24 | 授权资讯源或 P1 自动采集评估前 |
 | D-058 | 公告 PDF 可探测不代表允许长期保存、全文解析、AI 摘要或再展示 | PDF 下载、解析和全文留存涉及版权、存储和隐私风险 | PDF 处理、AI 摘要、存储策略、开放问题 | 已确认 | 2026-07-24 | 正式公告正文解析开发前 |
+## 2026-07-26 - 6A.1 证券目录来源补全与真实自选股收口
+
+- 决定：`SSE_SECURITY_MASTER` 改为读取上交所官方分页接口的主板和科创板目录，并加入开发验收完整度门槛。
+- 决定：`BSE_SECURITY_MASTER` 改用北交所官方新旧代码对照表，当前 `symbol` 使用 920 前缀 `.BJ`，旧代码作为 alias / previous symbol。
+- 决定：`BAOSTOCK_SECURITY_MASTER` 收口为 `BAOSTOCK_DEVELOPMENT_FALLBACK`，保留旧代码作为输入别名；该来源非官方、默认关闭、仅 development 环境可显式启用，production 和非 development 环境阻止。
+- 决定：来源优先级为官方交易所目录、经验证的官方公开页面、BaoStock 开发补充、development_seed。低优先级来源只补缺和记录冲突，不覆盖高优先级字段。
+- 事实记录：2026-07-26 真实验证中 `SZSE_SECURITY_MASTER` 仍返回 HTTP 500 / `network_error`；深市本地产品验收由 `BAOSTOCK_DEVELOPMENT_FALLBACK` 使用 2026-07-24 最近交易日数据补足，但不代表深交所官方 Provider 可用。
+- 仍开放：正式证券主数据供应商、授权、更新频率、停牌/退市/改名生命周期和深交所官方目录口径。

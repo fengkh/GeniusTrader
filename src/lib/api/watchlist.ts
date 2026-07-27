@@ -1,5 +1,14 @@
 import { apiRequest, toQueryString } from "@/lib/api/client";
-import type { Page, UUID, WatchlistItemRead } from "@/lib/api/types";
+import type {
+  ApiMessage,
+  Page,
+  UserTagRead,
+  UUID,
+  WatchlistGroupRead,
+  WatchlistItemPayload,
+  WatchlistItemRead,
+  WatchlistItemUpdatePayload
+} from "@/lib/api/types";
 
 export interface WatchlistListParams {
   group_id?: UUID;
@@ -25,3 +34,50 @@ export async function listWatchlistItems(
   );
 }
 
+export async function listWatchlistGroups(): Promise<WatchlistGroupRead[]> {
+  return apiRequest<WatchlistGroupRead[]>("/watchlist/groups");
+}
+
+export async function createWatchlistGroup(name: string): Promise<WatchlistGroupRead> {
+  return apiRequest<WatchlistGroupRead>("/watchlist/groups", {
+    method: "POST",
+    body: JSON.stringify({ name })
+  });
+}
+
+export async function listWatchlistTags(): Promise<UserTagRead[]> {
+  return apiRequest<UserTagRead[]>("/watchlist/tags");
+}
+
+export async function createWatchlistTag(name: string): Promise<UserTagRead> {
+  return apiRequest<UserTagRead>("/watchlist/tags", {
+    method: "POST",
+    body: JSON.stringify({ name })
+  });
+}
+
+export async function createWatchlistItem(payload: WatchlistItemPayload): Promise<WatchlistItemRead> {
+  return apiRequest<WatchlistItemRead>("/watchlist", {
+    method: "POST",
+    body: JSON.stringify({
+      ...payload,
+      tag_ids: payload.tag_ids ?? []
+    })
+  });
+}
+
+export async function updateWatchlistItem(
+  itemId: UUID,
+  payload: WatchlistItemUpdatePayload
+): Promise<WatchlistItemRead> {
+  return apiRequest<WatchlistItemRead>(`/watchlist/${itemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteWatchlistItem(itemId: UUID): Promise<void> {
+  await apiRequest<ApiMessage>(`/watchlist/${itemId}`, {
+    method: "DELETE"
+  });
+}

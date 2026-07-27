@@ -81,6 +81,17 @@ export default function SettingsPage() {
               查看外部来源注册、实验公告Provider和未来来源规划，不在前端修改功能开关。
             </p>
           </Link>
+          {user?.role === "admin" ? (
+            <Link
+              href="/settings/security-master"
+              className="focus-ring rounded-lg border border-slate-200 bg-white p-4 hover:bg-slate-50"
+            >
+              <p className="text-sm font-semibold text-slate-950">证券目录</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                查看 A 股证券主数据状态，并手动触发开发环境证券目录同步。
+              </p>
+            </Link>
+          ) : null}
           {user ? (
             <button
               onClick={handleLogout}

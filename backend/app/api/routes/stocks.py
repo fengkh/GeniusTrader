@@ -19,6 +19,8 @@ async def list_stock_catalog(
     q: Annotated[str | None, Query(max_length=64)] = None,
     exchange: Annotated[str | None, Query(max_length=8)] = None,
     market: Annotated[str | None, Query(max_length=32)] = None,
+    board: Annotated[str | None, Query(max_length=32)] = None,
+    listing_status: Annotated[str | None, Query(max_length=32)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict[str, Page[StockRead]]:
@@ -28,6 +30,40 @@ async def list_stock_catalog(
         q=q,
         exchange=exchange,
         market=market,
+        board=board,
+        listing_status=listing_status,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "data": Page(
+            items=[StockRead.model_validate(item) for item in items],
+            limit=limit,
+            offset=offset,
+            total=total,
+        )
+    }
+
+
+@router.get("/search", response_model=DataEnvelope[Page[StockRead]])
+async def search_stock_catalog(
+    session: SessionDependency,
+    current_user: CurrentUser,
+    q: Annotated[str | None, Query(max_length=64)] = None,
+    exchange: Annotated[str | None, Query(max_length=8)] = None,
+    board: Annotated[str | None, Query(max_length=32)] = None,
+    listing_status: Annotated[str | None, Query(max_length=32)] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, Page[StockRead]]:
+    del current_user
+    items, total = await list_stocks(
+        session,
+        q=q,
+        exchange=exchange,
+        market="A_SHARE",
+        board=board,
+        listing_status=listing_status,
         limit=limit,
         offset=offset,
     )

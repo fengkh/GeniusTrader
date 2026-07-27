@@ -204,7 +204,7 @@ async def test_empty_and_complete_rules_only_reviews(client: AsyncClient, db_ses
     assert snapshot["scope_note"] == "当前复盘仅聚合用户保存和分析的信息，不代表全市场行情复盘。"
     assert snapshot["overview"]["fact_count"] == 1
     assert snapshot["overview"]["rumor_count"] == 1
-    assert snapshot["watchlist_sections"][0]["symbol"] == "600519"
+    assert snapshot["watchlist_sections"][0]["symbol"] == "600519.SH"
     assert "买入" not in str(snapshot)
 
 
@@ -247,8 +247,8 @@ async def test_partial_relations_latest_success_and_non_watchlist_group(client: 
     snapshot = response.json()["data"]["current_version"]["rule_snapshot"]
     assert response.json()["data"]["status"] == "partial"
     assert snapshot["overview"]["pending_analysis_count"] == 1
-    assert snapshot["pending_relations"][0]["symbol"] == "600519"
-    assert snapshot["confirmed_non_watchlist_sections"][0]["symbol"] == "300750"
+    assert snapshot["pending_relations"][0]["symbol"] == "600519.SH"
+    assert snapshot["confirmed_non_watchlist_sections"][0]["symbol"] == "300750.SZ"
     item_rows = (await db_session.execute(select(DailyReviewItem))).scalars().all()
     assert {row.inclusion_type for row in item_rows} >= {"analyzed", "unconfirmed_relation"}
     assert str(success.id) in str(snapshot)

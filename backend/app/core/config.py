@@ -112,6 +112,42 @@ class Settings(BaseSettings):
         default=7,
         validation_alias="ANNOUNCEMENT_SYNC_LOOKBACK_DAYS",
     )
+    security_master_sync_enabled: bool = Field(
+        default=False,
+        validation_alias="SECURITY_MASTER_SYNC_ENABLED",
+    )
+    security_master_real_network_enabled: bool = Field(
+        default=False,
+        validation_alias="SECURITY_MASTER_REAL_NETWORK_ENABLED",
+    )
+    security_master_sse_enabled: bool = Field(
+        default=False,
+        validation_alias="SECURITY_MASTER_SSE_ENABLED",
+    )
+    security_master_szse_enabled: bool = Field(
+        default=False,
+        validation_alias="SECURITY_MASTER_SZSE_ENABLED",
+    )
+    security_master_bse_enabled: bool = Field(
+        default=False,
+        validation_alias="SECURITY_MASTER_BSE_ENABLED",
+    )
+    security_master_baostock_enabled: bool = Field(
+        default=False,
+        validation_alias="SECURITY_MASTER_BAOSTOCK_ENABLED",
+    )
+    security_master_max_records_per_run: int = Field(
+        default=5000,
+        validation_alias="SECURITY_MASTER_MAX_RECORDS_PER_RUN",
+    )
+    security_master_request_timeout_seconds: int = Field(
+        default=15,
+        validation_alias="SECURITY_MASTER_REQUEST_TIMEOUT_SECONDS",
+    )
+    security_master_max_response_bytes: int = Field(
+        default=5242880,
+        validation_alias="SECURITY_MASTER_MAX_RESPONSE_BYTES",
+    )
 
     model_config = SettingsConfigDict(
         env_file=(LOCAL_DATABASE_ENV, LOCAL_APP_ENV, LOCAL_ANNOUNCEMENT_ENV, BACKEND_ENV),

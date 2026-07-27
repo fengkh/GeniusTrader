@@ -219,9 +219,27 @@ export interface InformationDetail extends InformationSummary {
 export interface StockRead {
   id: UUID;
   symbol: string;
+  code: string;
   exchange: string;
   name: string;
   market: string;
+  board: string;
+  security_type: string;
+  short_name: string;
+  full_name: string | null;
+  english_name: string | null;
+  listing_status: string;
+  listed_at: string | null;
+  delisted_at: string | null;
+  aliases: string[];
+  pinyin: string | null;
+  pinyin_initials: string | null;
+  source_code: string;
+  source_record_id: string | null;
+  source_updated_at: string | null;
+  last_synced_at: string | null;
+  data_completeness: string;
+  is_searchable: boolean;
   list_status: string;
   list_date: string | null;
   delist_date: string | null;
@@ -258,6 +276,68 @@ export interface WatchlistItemRead {
   archived_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface WatchlistItemPayload {
+  stock_id: UUID;
+  group_id?: UUID | null;
+  attention_reason?: string | null;
+  notes?: string | null;
+  tag_ids?: UUID[];
+}
+
+export interface WatchlistItemUpdatePayload {
+  group_id?: UUID | null;
+  attention_reason?: string | null;
+  notes?: string | null;
+  sort_order?: number | null;
+  tag_ids?: UUID[] | null;
+}
+
+export interface SecurityMasterProvider {
+  source_code: string;
+  display_name: string;
+  implemented: boolean;
+  enabled_by_config: boolean;
+  official: boolean;
+  capabilities: string[];
+  limitations: string[];
+}
+
+export interface SecurityMasterSyncRun {
+  id: UUID;
+  triggered_by_user_id: UUID;
+  source_code: string;
+  status: string;
+  exchanges: string[];
+  request_count: number;
+  received_count: number;
+  created_count: number;
+  updated_count: number;
+  unchanged_count: number;
+  deactivated_count: number;
+  failure_count: number;
+  started_at: string;
+  completed_at: string | null;
+  error_code: string | null;
+  error_summary: string | null;
+  metrics: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SecurityMasterStatus {
+  total_count: number;
+  by_exchange: Record<string, number>;
+  by_board: Record<string, number>;
+  active_count: number;
+  development_seed_count: number;
+  seed_covered_count: number;
+  last_synced_at: string | null;
+  sources: string[];
+  data_gaps: string[];
+  latest_sync_status: string | null;
+  latest_sync_run: SecurityMasterSyncRun | null;
 }
 
 export interface ProviderSyncRun {

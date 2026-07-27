@@ -1,5 +1,12 @@
 # 开发路线图
 
+## 第六阶段前置子阶段 6A：A 股证券主数据与真实自选股闭环
+
+- 当前阶段：在继续公告真实 Smoke 前，先实现 `SecurityMasterProvider`、扩展 `stocks` 主数据、管理员人工证券目录同步、本地股票搜索、`/watchlist` 真实自选股管理和公告匹配对真实 `stock.id` 的依赖。
+- 本阶段不做：真实行情、分钟行情、K线、财务、估值、自动证券目录调度、公告自动同步、全市场公告监控、新闻采集、政府文件采集、国际媒体、微信、交易或生产部署。
+- 完成标准：SSE、SZSE、BSE 候选来源完成小样本真实网络验证并记录状态；开发库和测试库迁移到 `202607230006`；用户可以通过本地证券目录搜索并添加真实股票；自选股用户隔离、重复添加、200 只上限、分组、标签和关注原因通过验收；无 P0/P1。
+- 后续顺序：6A 通过后，才恢复公告真实 Smoke、候选 PDF、导入和 AI 闭环补验。
+
 ## 第六阶段补充：外部来源与公告候选试点
 
 - 当前阶段：实现外部来源注册表、公告 Provider 接口、CNINFO 实验 Adapter、SSE 有限 Adapter、公告元数据标准化、去重、当前用户自选股匹配、用户私有候选收件箱、按需 PDF 提取和人工导入 InformationItem。
@@ -305,7 +312,7 @@
 限制：
 
 - 不接入真实行情 Provider、全市场真实复盘、估值后端、自动调度、任务队列、微信公众号、邮件、Web Push、移动 Push 或 Docker。
-- `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心和微信公众号区域继续保持 Mock。
+- 阶段 4C 当时 `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心和微信公众号区域继续保持 Mock；6A 起 `/watchlist` 自选股管理已切换为真实 API。
 - 自动测试必须 Mock AI，不调用用户真实 Provider。
 
 输出：
@@ -341,3 +348,8 @@
 - 被 Git 忽略的本地样本报告和指标输出。
 - `docs/20_INFORMATION_PROVIDER_FEASIBILITY_DRAFT.md`。
 - 是否进入正式公告 Provider Adapter 设计的产品负责人确认建议。
+## 2026-07-26 6A.1 状态
+
+- 已完成：SSE 官方目录分页、BSE 官方新旧代码映射、BaoStock development fallback、来源优先级合并、完整度门槛、真实开发库同步。
+- 已暂停但未关闭：SZSE 官方目录来源，当前真实验证为 HTTP 500 / `network_error`。
+- 下一步仅在 6A 浏览器真实自选股页面验收通过后，恢复公告真实 Smoke；不得因为 BaoStock fallback 可用而宣称证券主数据生产来源已冻结。

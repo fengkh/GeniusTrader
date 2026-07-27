@@ -123,7 +123,8 @@ AI 不得直接宣称某条内容“真实”或“虚假”，也不应给出�
 - 当前已实现真实 API 的页面包括 `/login`、`/information`、`/information/[itemId]`、`/settings/ai`、`/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分。
 - 用户每日复盘当前只聚合用户保存并分析的信息，不代表全市场行情复盘。
 - 站内通知当前只真实支持 `in_app`；微信公众号、邮件、Web Push、移动 Push 和短信仍未接入。
-- `/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心、微信公众号状态和微信消息预览继续保持 Mock 或未来边界。
+- 6A 起 `/watchlist` 自选股管理接真实 API；`/today`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心、微信公众号状态和微信消息预览继续保持 Mock 或未来边界。
+- 证券基本信息来自证券目录同步；行情、财务、估值和技术指标仍未接入真实数据。
 
 产品字段应优先使用“信息质量”“证据状态”“核验状态”“待核实事项”等表述，而不是武断真假判断。
 
