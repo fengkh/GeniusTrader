@@ -69,6 +69,16 @@ class AITask(UuidPrimaryKeyMixin, Base):
         ),
         Index("ix_ai_tasks_user_status", "user_id", "status"),
         Index("ix_ai_tasks_target", "target_type", "target_id"),
+        Index(
+            "uq_ai_tasks_active_daily_review_generation",
+            "target_id",
+            unique=True,
+            postgresql_where=text(
+                "task_type = 'user_daily_review_generation' "
+                "AND target_type = 'daily_review' "
+                "AND status IN ('pending', 'running')"
+            ),
+        ),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(

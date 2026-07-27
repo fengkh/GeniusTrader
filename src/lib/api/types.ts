@@ -59,6 +59,11 @@ export interface AnnouncementProvider {
   experimental_limited: boolean;
   capabilities: string[];
   limitations: string[];
+  limits: {
+    max_symbols_per_run: number;
+    max_records_per_run: number;
+    sync_lookback_days: number;
+  };
 }
 
 export interface FutureSourceGroup {
@@ -485,6 +490,9 @@ export interface DailyReviewSummary {
   updated_at: string;
   overview: Record<string, unknown>;
   ai_available: boolean;
+  generation_in_progress: boolean;
+  generation_task_id: UUID | null;
+  generation_task_status: string | null;
 }
 
 export interface DailyReviewDetail extends DailyReviewSummary {

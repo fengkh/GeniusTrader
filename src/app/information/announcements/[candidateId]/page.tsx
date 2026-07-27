@@ -339,16 +339,16 @@ export default function AnnouncementCandidateDetailPage() {
               <XCircle className="h-4 w-4" />
               忽略
             </button>
-            {detail.status === "dismissed" ? (
+            {detail.status === "dismissed" || detail.status === "reviewed" ? (
               <button
-                onClick={() => runAction("恢复候选", async () => {
+                onClick={() => runAction("恢复待处理", async () => {
                   await patchAnnouncementCandidate(detail.id, "pending");
                 })}
                 className="focus-ring inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700"
                 disabled={!!actionLoading}
                 type="button"
               >
-                恢复
+                恢复待处理
               </button>
             ) : null}
           </div>

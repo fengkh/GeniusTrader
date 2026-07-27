@@ -29,6 +29,7 @@ router = APIRouter()
 async def list_reviews(
     session: SessionDependency,
     current_user: CurrentUser,
+    settings: SettingsDependency,
     status_value: Annotated[str | None, Query(alias="status", max_length=32)] = None,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -43,6 +44,7 @@ async def list_reviews(
         date_to=date_to,
         limit=limit,
         offset=offset,
+        settings=settings,
     )
     return {"data": Page(items=items, limit=limit, offset=offset, total=total)}
 

@@ -34,7 +34,12 @@ from app.models.review_notification import (
 from app.models.stock import Stock
 from app.providers.announcements.classification import classify_announcement
 from app.providers.announcements.document_extraction import ExtractedAnnouncementDocument
-from app.providers.announcements.models import NormalizedAnnouncement, ProviderResult
+from app.providers.announcements.models import (
+    NormalizedAnnouncement,
+    ProviderResult,
+    RawAnnouncementRecord,
+)
+from app.providers.announcements.normalization import build_normalized_announcement
 from app.providers.base import ProviderHttpResult
 from app.providers.statuses import ProviderStatus
 from tests.conftest import create_user, login, seed_stock, unique_username
@@ -210,12 +215,59 @@ async def test_external_source_registry_defaults_and_provider_catalog(client: As
     catalog = {item["source_code"]: item for item in providers.json()["data"]}
     assert catalog["CNINFO"]["implemented"] is True
     assert catalog["CNINFO"]["enabled_by_config"] is False
+    assert catalog["CNINFO"]["limits"]["max_symbols_per_run"] >= 1
+    assert catalog["CNINFO"]["limits"]["max_records_per_run"] >= 1
     assert catalog["SZSE_DISCLOSURE"]["implemented"] is False
     assert catalog["BSE_DISCLOSURE"]["enabled_by_config"] is False
 
     future = await client.get("/api/v1/external-sources/future-groups")
     assert future.status_code == 200
     assert all("implemented" not in item for item in future.json()["data"])
+
+
+async def test_announcement_provider_catalog_exposes_non_sensitive_run_limits(client: AsyncClient, db_session, monkeypatch):
+    monkeypatch.setenv("ANNOUNCEMENT_MAX_SYMBOLS_PER_RUN", "4")
+    monkeypatch.setenv("ANNOUNCEMENT_MAX_RECORDS_PER_RUN", "20")
+    monkeypatch.setenv("ANNOUNCEMENT_SYNC_LOOKBACK_DAYS", "7")
+    get_settings.cache_clear()
+    await _login_user(client, db_session)
+
+    providers = await client.get("/api/v1/announcement-providers")
+
+    assert providers.status_code == 200
+    catalog = {item["source_code"]: item for item in providers.json()["data"]}
+    assert catalog["CNINFO"]["limits"] == {
+        "max_symbols_per_run": 4,
+        "max_records_per_run": 20,
+        "sync_lookback_days": 7,
+    }
+    assert set(catalog["CNINFO"]["limits"]) == {
+        "max_symbols_per_run",
+        "max_records_per_run",
+        "sync_lookback_days",
+    }
+
+
+async def test_raw_announcement_normalization_reports_missing_provider_id_without_crashing():
+    normalized = build_normalized_announcement(
+        source_code="CNINFO",
+        raw=RawAnnouncementRecord(
+            provider_record_id=None,
+            title="Alpha Tech annual report",
+            published_at="2026-07-27 15:30:00",
+            source_page_url="https://www.cninfo.com.cn/new/disclosure/detail",
+            document_url="https://static.cninfo.com.cn/finalpage/fake.pdf",
+            company_name="Alpha Tech",
+            stock_symbols=["600519.SH"],
+            exchange="SH",
+            raw_payload={"announcementTitle": "Alpha Tech annual report"},
+        ),
+        fetched_at=utc_now(),
+    )
+
+    assert normalized.provider_announcement_id is None
+    assert "provider_announcement_id" in normalized.missing_fields
+    assert normalized.stock_symbols == ["600519.SH"]
 
 
 async def test_sync_guards_default_disabled_source_disabled_production_and_legal_hold(client: AsyncClient, db_session, monkeypatch):
@@ -367,6 +419,43 @@ async def test_deduplication_and_user_candidate_isolation(client: AsyncClient, d
     assert candidate_b["id"] != str(candidate_a.id)
 
 
+async def test_candidate_restore_pending_and_imported_status_protection(client: AsyncClient, db_session, monkeypatch):
+    await _login_user(client, db_session)
+    await _add_watchlist_stock(client, db_session)
+    candidate, _run = await _sync_candidate(client, db_session, monkeypatch, provider_id="restore-1")
+
+    reviewed = await client.patch(f"/api/v1/announcement-candidates/{candidate.id}", json={"status": "reviewed"})
+    assert reviewed.status_code == 200
+    assert reviewed.json()["data"]["status"] == "reviewed"
+    assert reviewed.json()["data"]["reviewed_at"] is not None
+
+    restored_from_reviewed = await client.patch(f"/api/v1/announcement-candidates/{candidate.id}", json={"status": "pending"})
+    assert restored_from_reviewed.status_code == 200
+    assert restored_from_reviewed.json()["data"]["status"] == "pending"
+    assert restored_from_reviewed.json()["data"]["reviewed_at"] is None
+    assert restored_from_reviewed.json()["data"]["dismissed_at"] is None
+
+    dismissed = await client.patch(f"/api/v1/announcement-candidates/{candidate.id}", json={"status": "dismissed"})
+    assert dismissed.status_code == 200
+    assert dismissed.json()["data"]["status"] == "dismissed"
+    assert dismissed.json()["data"]["dismissed_at"] is not None
+
+    restored_from_dismissed = await client.patch(f"/api/v1/announcement-candidates/{candidate.id}", json={"status": "pending"})
+    assert restored_from_dismissed.status_code == 200
+    assert restored_from_dismissed.json()["data"]["status"] == "pending"
+    assert restored_from_dismissed.json()["data"]["reviewed_at"] is None
+    assert restored_from_dismissed.json()["data"]["dismissed_at"] is None
+
+    imported = await client.post(
+        f"/api/v1/announcement-candidates/{candidate.id}/import",
+        json={"import_mode": "metadata_only"},
+    )
+    assert imported.status_code == 201
+    protected = await client.patch(f"/api/v1/announcement-candidates/{candidate.id}", json={"status": "pending"})
+    assert protected.status_code == 409
+    assert protected.json()["error"]["code"] == "ANNOUNCEMENT_ALREADY_IMPORTED"
+
+
 async def test_metadata_import_is_idempotent_and_does_not_auto_analyze_or_notify(client: AsyncClient, db_session, monkeypatch):
     await _login_user(client, db_session)
     await _add_watchlist_stock(client, db_session)
@@ -412,6 +501,7 @@ async def test_metadata_import_is_idempotent_and_does_not_auto_analyze_or_notify
     assert (await db_session.execute(select(func.count()).select_from(InformationIngestionLink))).scalar_one() == 1
     assert (await db_session.execute(select(func.count()).select_from(InformationStockRelation))).scalar_one() == 1
     assert (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one() == 0
+    assert (await db_session.execute(select(func.count()).select_from(BusinessEvent))).scalar_one() == 0
     assert (await db_session.execute(select(func.count()).select_from(Notification))).scalar_one() == 0
 
 
@@ -428,6 +518,8 @@ async def test_announcement_import_marks_existing_review_stale_without_auto_rege
 
     candidate, _run = await _sync_candidate(client, db_session, monkeypatch, provider_id="stale-import-1")
     ai_before = (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one()
+    event_ids_before = {row.id for row in (await db_session.execute(select(BusinessEvent))).scalars().all()}
+    notification_ids_before = {row.id for row in (await db_session.execute(select(Notification))).scalars().all()}
 
     imported = await client.post(
         f"/api/v1/announcement-candidates/{candidate.id}/import",
@@ -442,13 +534,41 @@ async def test_announcement_import_marks_existing_review_stale_without_auto_rege
     stale_events = (
         await db_session.execute(select(BusinessEvent).where(BusinessEvent.event_type == "user_daily_review.became_stale"))
     ).scalars().all()
+    new_events = [
+        row for row in (await db_session.execute(select(BusinessEvent).order_by(BusinessEvent.created_at))).scalars().all()
+        if row.id not in event_ids_before
+    ]
+    new_notifications = [
+        row for row in (await db_session.execute(select(Notification).order_by(Notification.created_at))).scalars().all()
+        if row.id not in notification_ids_before
+    ]
     assert review.status == "stale"
     assert review.stale_at is not None
     assert str(review.current_version_id) == first_version_id
     assert review.input_fingerprint == first_fingerprint
     assert len(versions) == 1
     assert len(stale_events) == 1
+    assert [event.event_type for event in new_events] == ["user_daily_review.became_stale"]
+    assert len(new_notifications) == 1
+    assert new_notifications[0].event_type == "user_daily_review.became_stale"
+    assert all(not event.event_type.startswith("announcement.") for event in new_events)
+    assert all(notification.event_type != "announcement.imported" for notification in new_notifications)
     assert (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one() == ai_before
+
+    duplicate = await client.post(
+        f"/api/v1/announcement-candidates/{candidate.id}/import",
+        json={"import_mode": "metadata_only"},
+    )
+    assert duplicate.status_code == 201
+    assert duplicate.json()["data"]["already_imported"] is True
+    duplicate_stale_events = (
+        await db_session.execute(select(BusinessEvent).where(BusinessEvent.event_type == "user_daily_review.became_stale"))
+    ).scalars().all()
+    duplicate_stale_notifications = (
+        await db_session.execute(select(Notification).where(Notification.event_type == "user_daily_review.became_stale"))
+    ).scalars().all()
+    assert len(duplicate_stale_events) == 1
+    assert len(duplicate_stale_notifications) == 1
 
 
 async def test_document_extraction_and_extracted_document_import_are_opt_in(client: AsyncClient, db_session, monkeypatch):

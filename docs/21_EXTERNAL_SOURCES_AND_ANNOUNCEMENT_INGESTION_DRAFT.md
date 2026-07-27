@@ -317,7 +317,7 @@ Bloomberg、Reuters 等媒体必须通过授权接口或内容合作接入，不
 - 请求间隔默认 1000ms。
 - 最近同步窗口默认 7 天。
 
-本地实验配置放在被 Git 忽略的 `.local/announcement.env`。不得输出该文件真实内容。生产环境即使误配真实网络开关，也必须阻止公告真实同步。
+本地实验配置放在被 Git 忽略的 `.local/announcement.env`。不得输出该文件真实内容。前端展示同步限制时必须读取公告 Provider 能力接口返回的非敏感 `limits`，不得硬编码开发默认值；2026-07-26/27 本地真实 Smoke 使用的实验限制为单次最多 4 只股票、20 条公告。生产环境即使误配真实网络开关，也必须阻止公告真实同步。
 
 ## 十一、Provider 接口
 
@@ -362,6 +362,7 @@ providers/
 - 无自选股时返回 `data_insufficient`，不调用 Provider。
 - 同一用户同一时刻不得并发启动多个公告同步运行。
 - 不同用户运行和候选互相隔离。
+- 页面请求进行期间必须显示同步中状态并禁用“同步公告候选”按钮，防止重复点击；该前端状态只作为交互保护，不替代后端 `ANNOUNCEMENT_SYNC_ALREADY_RUNNING` 并发防护。
 
 ## 十三、公告标准化
 
@@ -470,6 +471,8 @@ AI 不得：
 - 可复用既有信息通知逻辑；
 - 不新增公告专属即时通知。
 
+“不自动通知”在本阶段指不创建 `announcement.imported`、`announcement.candidate_created` 或其他公告专属 BusinessEvent / Notification。若导入后的 InformationItem 改变了既有每日复盘输入，已有复盘领域规则可以产生一次 `user_daily_review.became_stale` 事件和对应站内通知；这属于每日复盘 stale 通知，不属于公告导入通知。重复导入幂等返回既有 InformationItem，不得重复产生 stale 通知；没有既有复盘时，不得虚构 stale 事件。
+
 ## 十九、用户隔离
 
 必须满足：
@@ -493,8 +496,8 @@ AI 不得：
 新增页面：
 
 - `/settings/sources`：展示外部来源注册表、公告 Provider 状态和未来来源分组。不得提供同步按钮或 Provider 编辑能力。
-- `/information/announcements`：公告候选收件箱，包含实验说明、手动同步入口、来源状态、筛选区、候选列表和基础操作。
-- `/information/announcements/[candidateId]`：候选详情，包含详细实验说明、来源授权状态、匹配依据、PDF 状态、导入模式和跳转 InformationItem 的入口。
+- `/information/announcements`：公告候选收件箱，包含实验说明、手动同步入口、来源状态、当前 Provider 同步限制、筛选区、候选列表和基础操作。`reviewed` 与 `dismissed` 候选必须提供“恢复待处理”入口，`pending` 不显示该入口，`imported` 不允许恢复。
+- `/information/announcements/[candidateId]`：候选详情，包含详细实验说明、来源授权状态、匹配依据、PDF 状态、状态恢复、导入模式和跳转 InformationItem 的入口。状态操作期间按钮禁用，成功后刷新状态，失败时使用现有错误反馈。
 
 移动端要求：
 

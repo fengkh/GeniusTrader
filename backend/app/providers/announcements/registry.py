@@ -25,6 +25,11 @@ def get_announcement_provider(source_code: str, settings: Settings) -> Announcem
 
 
 def provider_catalog(settings: Settings) -> list[dict[str, object]]:
+    run_limits = {
+        "max_symbols_per_run": settings.announcement_max_symbols_per_run,
+        "max_records_per_run": settings.announcement_max_records_per_run,
+        "sync_lookback_days": settings.announcement_sync_lookback_days,
+    }
     return [
         {
             "source_code": "CNINFO",
@@ -34,6 +39,7 @@ def provider_catalog(settings: Settings) -> list[dict[str, object]]:
             "experimental": True,
             "capabilities": ["announcement_list", "announcement_pdf"],
             "limitations": ["实验性技术候选；授权、稳定性和完整性尚未最终确认。"],
+            "limits": run_limits,
         },
         {
             "source_code": "SSE_DISCLOSURE",
@@ -44,6 +50,7 @@ def provider_catalog(settings: Settings) -> list[dict[str, object]]:
             "experimental_limited": True,
             "capabilities": ["announcement_list", "announcement_pdf"],
             "limitations": ["有限备选；小样本能力有限，不作为 CNINFO 自动回退。"],
+            "limits": run_limits,
         },
         {
             "source_code": "SZSE_DISCLOSURE",
@@ -53,6 +60,7 @@ def provider_catalog(settings: Settings) -> list[dict[str, object]]:
             "experimental": False,
             "capabilities": [],
             "limitations": ["本阶段证据不足，未实现真实网络 Adapter。"],
+            "limits": run_limits,
         },
         {
             "source_code": "BSE_DISCLOSURE",
@@ -62,5 +70,6 @@ def provider_catalog(settings: Settings) -> list[dict[str, object]]:
             "experimental": False,
             "capabilities": [],
             "limitations": ["本阶段证据不足，未实现真实网络 Adapter。"],
+            "limits": run_limits,
         },
     ]

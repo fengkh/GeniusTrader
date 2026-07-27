@@ -84,7 +84,7 @@ export default function ReviewDetailPage() {
   const reviewId = params.reviewId;
   const [review, setReview] = useState<DailyReviewDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [working, setWorking] = useState(false);
+  const [workingAction, setWorkingAction] = useState<"archive" | "regenerate" | null>(null);
   const [useAi, setUseAi] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -97,6 +97,9 @@ export default function ReviewDetailPage() {
     () => (review?.current_version?.ai_structured_result ?? null) as Record<string, unknown> | null,
     [review?.current_version]
   );
+  const generationInProgress = Boolean(review?.generation_in_progress);
+  const regenerating = workingAction === "regenerate" || generationInProgress;
+  const actionDisabled = workingAction !== null || generationInProgress;
 
   const refreshReview = useCallback(async () => {
     setLoading(true);
@@ -121,10 +124,10 @@ export default function ReviewDetailPage() {
   }, [authLoading, refreshReview, user]);
 
   async function handleRegenerate() {
-    if (working || !review) {
+    if (actionDisabled || !review) {
       return;
     }
-    setWorking(true);
+    setWorkingAction("regenerate");
     setError(null);
     setSuccess(null);
     try {
@@ -133,16 +136,17 @@ export default function ReviewDetailPage() {
       setSuccess(`已重新生成 v${updated.current_version_number ?? "-"}，状态：${reviewStatusLabel(updated.status)}。`);
     } catch (caught) {
       setError(humanizeApiError(caught));
+      void refreshReview();
     } finally {
-      setWorking(false);
+      setWorkingAction(null);
     }
   }
 
   async function handleArchive() {
-    if (working || !review) {
+    if (actionDisabled || !review) {
       return;
     }
-    setWorking(true);
+    setWorkingAction("archive");
     setError(null);
     try {
       await archiveDailyReview(review.id, true);
@@ -150,7 +154,7 @@ export default function ReviewDetailPage() {
     } catch (caught) {
       setError(humanizeApiError(caught));
     } finally {
-      setWorking(false);
+      setWorkingAction(null);
     }
   }
 
@@ -195,7 +199,7 @@ export default function ReviewDetailPage() {
             </Link>
             <button
               onClick={handleArchive}
-              disabled={working}
+              disabled={actionDisabled}
               className="focus-ring inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
               type="button"
             >
@@ -210,6 +214,12 @@ export default function ReviewDetailPage() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill status={review.status} />
+            {generationInProgress ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-800">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                生成中
+              </span>
+            ) : null}
             <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700">
               v{review.current_version_number ?? "-"}
             </span>
@@ -226,21 +236,28 @@ export default function ReviewDetailPage() {
                 type="checkbox"
                 checked={useAi}
                 onChange={(event) => setUseAi(event.target.checked)}
+                disabled={actionDisabled}
                 className="h-4 w-4 rounded border-slate-300"
               />
               使用AI解释
             </label>
             <button
               onClick={handleRegenerate}
-              disabled={working}
+              disabled={actionDisabled}
               className="focus-ring inline-flex h-9 items-center justify-center gap-2 rounded-md bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
               type="button"
             >
-              <RefreshCw className={`h-4 w-4 ${working ? "animate-spin" : ""}`} />
-              重新生成
+              <RefreshCw className={`h-4 w-4 ${regenerating ? "animate-spin" : ""}`} />
+              {regenerating ? "生成中" : "重新生成"}
             </button>
           </div>
         </div>
+        {generationInProgress ? (
+          <div className="mt-3 flex gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+            <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+            <span>该日期复盘正在生成中，当前页面已禁用重复提交。完成或失败后刷新页面即可继续操作。</span>
+          </div>
+        ) : null}
         {review.status === "stale" ? (
           <div className="mt-3 flex gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />

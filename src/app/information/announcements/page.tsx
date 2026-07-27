@@ -103,6 +103,7 @@ export default function AnnouncementInboxPage() {
     [providers]
   );
   const currentSource = sources.find((source) => source.source_code === syncForm.sourceCode);
+  const currentProvider = providerBySource.get(syncForm.sourceCode);
   const latestRun = runs?.items[0] ?? null;
 
   const loadAll = useCallback(async () => {
@@ -292,7 +293,9 @@ export default function AnnouncementInboxPage() {
             >
               <h2 className="text-base font-semibold text-slate-950">人工同步区</h2>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                仅同步当前用户自选股，服务端限制最多 20 只股票、最近 7 日、最多 50 条记录。
+                {currentProvider
+                  ? `仅同步当前用户自选股，服务端限制单次最多 ${currentProvider.limits.max_symbols_per_run} 只股票、最近 ${currentProvider.limits.sync_lookback_days} 日、单次最多 ${currentProvider.limits.max_records_per_run} 条公告。`
+                  : "仅同步当前用户自选股，服务端同步限制由公告 Provider 能力接口返回。"}
               </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-3">
                 <Field label="来源">
@@ -378,7 +381,7 @@ export default function AnnouncementInboxPage() {
                 </div>
               ) : null}
               <p className="mt-2 text-xs text-slate-500">
-                当前配置：{providerBySource.get(syncForm.sourceCode)?.enabled_by_config ? "Provider配置已启用" : "Provider配置关闭"}；
+                当前配置：{currentProvider?.enabled_by_config ? "Provider配置已启用" : "Provider配置关闭"}；
                 来源注册：{currentSource?.enabled ? "已启用" : "未启用"}。
               </p>
             </form>
@@ -469,6 +472,7 @@ export default function AnnouncementInboxPage() {
                   actionLoading={actionLoading}
                   onReview={() => runCandidateAction("标记已查看", () => patchAnnouncementCandidate(candidate.id, "reviewed"))}
                   onDismiss={() => runCandidateAction("忽略候选", () => patchAnnouncementCandidate(candidate.id, "dismissed"))}
+                  onRestore={() => runCandidateAction("恢复待处理", () => patchAnnouncementCandidate(candidate.id, "pending"))}
                   onImport={() =>
                     runCandidateAction("元数据导入", () =>
                       importAnnouncementCandidate(candidate.id, { import_mode: "metadata_only" })
@@ -504,12 +508,14 @@ function CandidateRow({
   actionLoading,
   onReview,
   onDismiss,
+  onRestore,
   onImport
 }: {
   candidate: AnnouncementCandidateSummary;
   actionLoading: string | null;
   onReview: () => void;
   onDismiss: () => void;
+  onRestore: () => void;
   onImport: () => void;
 }) {
   return (
@@ -560,6 +566,11 @@ function CandidateRow({
         {candidate.status !== "dismissed" ? (
           <button className="focus-ring h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700" disabled={!!actionLoading} onClick={onDismiss} type="button">
             忽略
+          </button>
+        ) : null}
+        {candidate.status === "dismissed" || candidate.status === "reviewed" ? (
+          <button className="focus-ring h-8 rounded-md border border-amber-200 px-2 text-xs font-semibold text-amber-800" disabled={!!actionLoading} onClick={onRestore} type="button">
+            恢复待处理
           </button>
         ) : null}
         {candidate.status !== "imported" ? (

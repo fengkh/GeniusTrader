@@ -160,6 +160,7 @@
 - 只选择最新成功分析版本；旧失败版本不进入复盘内容。
 - confirmed 股票关系进入正式分组；suggested 只进入待确认；rejected 不进入复盘；confirmed 非自选股单独展示。
 - `input_fingerprint` 支持非 force 幂等；force 生成新版本且旧版本保留。
+- 同一用户同一 `review_date` 生成中时，重复请求必须返回已有运行中状态或 `USER_DAILY_REVIEW_GENERATION_IN_PROGRESS`，不得重复创建 AI task、复盘版本、BusinessEvent 或 Notification，不得重复调用 AI Provider；前端刷新后也必须根据后端运行中状态禁用重新生成入口；完成、失败或超时后可再次主动 force 生成。
 - 同日信息、正文、分析版本、股票关系或自选股变化后，已有复盘变为 `stale`，详情页提示用户主动重新生成。
 - `/reviews/[reviewId]` 展示程序聚合概览、AI 解释、来源追溯、自选股分组、其他已确认股票、未归属信息、待确认关联、数据局限和历史版本。
 - AI 输出不得新增股票、事实、行情、估值、目标价、买卖、仓位或收益保证；`source_item_ids` 必须来自输入。

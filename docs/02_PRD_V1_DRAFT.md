@@ -289,12 +289,12 @@
 - 用户场景：用户在 `/reviews` 选择今日或历史 `review_date` 生成复盘，查看程序聚合概览、AI 解释、股票分组、待核实事项、来源和历史版本。
 - 前置条件：用户已登录；信息中心已有用户保存的信息，或允许生成空复盘。
 - 输入：当前用户信息条目、最新成功分析版本、正文版本、confirmed/suggested/rejected 股票关系、自选股、关注原因、用户标签和待核实事项。
-- 处理流程：服务端按 `Asia/Shanghai` 计算业务日期；生成确定性 `rule_snapshot` 和 `input_fingerprint`；已配置 AI 时调用 `user_daily_review_generation` 生成解释；AI 失败时保留规则复盘；保存版本；产生 BusinessEvent 和站内通知。
+- 处理流程：服务端按 `Asia/Shanghai` 计算业务日期；生成确定性 `rule_snapshot` 和 `input_fingerprint`；已配置 AI 时调用 `user_daily_review_generation` 生成解释；AI 失败时保留规则复盘；保存版本；产生 BusinessEvent 和站内通知；同一用户同一 `review_date` 同一时刻只允许一个生成任务。
 - 输出：复盘状态、当前版本、规则快照、AI 结构化结果、来源信息 ID、历史版本和相关通知。
 - 空状态：当日无可纳入信息时生成 `empty` 复盘，显示“当日暂无已保存信息”。
 - 错误状态：规则生成或保存失败为 `failed`；AI 失败降级为 `partial`，不得导致规则复盘丢失。
 - 权限要求：只读取、生成和展示当前用户复盘；管理员通过普通用户接口也不得读取其他用户私人复盘。
-- 验收标准：复盘不使用未来数据；不输出买卖、仓位、目标价或收益保证；confirmed 关系进入正式分组；suggested 关系只进入待确认；rejected 关系不进入复盘；输入未变化非 force 不新建版本；force 保留旧版本并创建新版本；输入变化后标记 stale。
+- 验收标准：复盘不使用未来数据；不输出买卖、仓位、目标价或收益保证；confirmed 关系进入正式分组；suggested 关系只进入待确认；rejected 关系不进入复盘；输入未变化非 force 不新建版本；force 保留旧版本并创建新版本；输入变化后标记 stale；生成中重复提交返回 `USER_DAILY_REVIEW_GENERATION_IN_PROGRESS`，不得重复创建 AI task、复盘版本、BusinessEvent 或 Notification，也不得重复调用 AI Provider；生成成功、失败或超时后允许用户再次主动生成。
 - 是否属于 MVP：是，当前第四阶段已进入正式后端和前端真实 API 联调。
 - AI 失败时的降级行为：使用 `rules_with_ai_fallback`，保留 `rule_snapshot` 和程序摘要。
 

@@ -69,6 +69,9 @@ class DailyReviewSummaryOut(OrmModel):
     updated_at: datetime
     overview: dict[str, Any]
     ai_available: bool
+    generation_in_progress: bool
+    generation_task_id: uuid.UUID | None
+    generation_task_status: str | None
 
 
 class DailyReviewDetailOut(DailyReviewSummaryOut):

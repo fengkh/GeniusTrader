@@ -43,10 +43,10 @@ class AnnouncementProviderOut(BaseModel):
     experimental_limited: bool = False
     capabilities: list[str]
     limitations: list[str]
+    limits: dict[str, int]
 
 
 class FutureSourceGroupOut(BaseModel):
     group: str
     examples: list[str]
     status: str
-

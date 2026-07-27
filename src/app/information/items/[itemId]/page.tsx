@@ -268,15 +268,15 @@ export default function InformationDetailPage() {
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="grid min-w-0 gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <SectionTitle icon={<Link2 className="h-5 w-5 text-blue-700" />} title="来源记录" />
           <div className="mt-4 space-y-3">
             {detail.sources.length === 0 ? (
               <p className="text-sm text-slate-500">暂无来源记录。</p>
             ) : (
               detail.sources.map((source) => (
-                <article key={source.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <article key={source.id} className="min-w-0 rounded-md border border-slate-200 bg-slate-50 p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <SmallPill>{source.fetch_status}</SmallPill>
                     {source.http_status ? <SmallPill>HTTP {source.http_status}</SmallPill> : null}
@@ -292,10 +292,10 @@ export default function InformationDetailPage() {
                       href={source.normalized_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="focus-ring mt-2 inline-flex max-w-full items-center gap-1 break-all text-sm font-medium text-blue-700 hover:text-blue-800"
+                      className="focus-ring mt-2 inline-flex min-w-0 max-w-full items-center gap-1 text-sm font-medium text-blue-700 hover:text-blue-800"
                     >
                       <ExternalLink className="h-4 w-4 shrink-0" />
-                      {source.normalized_url}
+                      <span className="min-w-0 break-all">{source.normalized_url}</span>
                     </a>
                   ) : null}
                 </article>
@@ -304,7 +304,7 @@ export default function InformationDetailPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <SectionTitle icon={<FileText className="h-5 w-5 text-slate-700" />} title="当前正文版本" />
           {detail.current_content ? (
             <div className="mt-4">
@@ -314,7 +314,7 @@ export default function InformationDetailPage() {
                 <SmallPill>{detail.current_content.extraction_status}</SmallPill>
                 <SmallPill>{detail.current_content.character_count} 字</SmallPill>
               </div>
-              <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-800">
+              <pre className="mt-3 max-h-[420px] max-w-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-800">
                 {detail.current_content.extracted_text}
               </pre>
             </div>
@@ -338,8 +338,8 @@ export default function InformationDetailPage() {
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="grid min-w-0 gap-5 xl:grid-cols-[1fr_1fr]">
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <SectionTitle icon={<Check className="h-5 w-5 text-emerald-700" />} title="股票关联" />
           <div className="mt-4 space-y-3">
             {detail.stock_relations.length === 0 ? (
@@ -365,40 +365,40 @@ export default function InformationDetailPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <SectionTitle icon={<ShieldAlert className="h-5 w-5 text-amber-700" />} title="实体提及与待核实事项" />
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            <div>
+          <div className="mt-4 grid min-w-0 gap-3 lg:grid-cols-2">
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-950">实体提及</p>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 min-w-0 space-y-2">
                 {detail.entity_mentions.length === 0 ? (
                   <p className="text-sm text-slate-500">暂无实体提及。</p>
                 ) : (
                   detail.entity_mentions.map((item) => (
-                    <div key={item.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-sm font-semibold text-slate-950">{item.entity_name}</p>
-                      <p className="mt-1 text-xs text-slate-500">
+                    <div key={item.id} className="min-w-0 rounded-md border border-slate-200 bg-slate-50 p-3">
+                      <p className="break-words text-sm font-semibold text-slate-950">{item.entity_name}</p>
+                      <p className="mt-1 break-words text-xs text-slate-500">
                         {item.entity_type} · {item.origin} · {item.status}
                       </p>
-                      {item.evidence_text ? <p className="mt-2 text-sm text-slate-700">{item.evidence_text}</p> : null}
+                      {item.evidence_text ? <p className="mt-2 break-words text-sm text-slate-700">{item.evidence_text}</p> : null}
                     </div>
                   ))
                 )}
               </div>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-950">待核实事项</p>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 min-w-0 space-y-2">
                 {detail.verification_items.length === 0 ? (
                   <p className="text-sm text-slate-500">暂无待核实事项。</p>
                 ) : (
                   detail.verification_items.map((item) => (
-                    <div key={item.id} className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                      <p className="text-sm font-semibold text-amber-950">{item.description}</p>
-                      <p className="mt-1 text-xs text-amber-800">
+                    <div key={item.id} className="min-w-0 rounded-md border border-amber-200 bg-amber-50 p-3">
+                      <p className="break-words text-sm font-semibold text-amber-950">{item.description}</p>
+                      <p className="mt-1 break-words text-xs text-amber-800">
                         {item.status} · {item.priority ?? "未分级"} · {item.verification_type}
                       </p>
-                      {item.evidence_needed ? <p className="mt-2 text-sm text-amber-900">{item.evidence_needed}</p> : null}
+                      {item.evidence_needed ? <p className="mt-2 break-words text-sm text-amber-900">{item.evidence_needed}</p> : null}
                     </div>
                   ))
                 )}

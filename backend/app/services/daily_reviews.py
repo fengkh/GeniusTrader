@@ -2,11 +2,12 @@ import hashlib
 import json
 import uuid
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -43,6 +44,7 @@ from app.services.notifications import create_business_event
 
 DAILY_REVIEW_SCHEMA_VERSION = "daily-review-v1"
 DAILY_REVIEW_PROMPT_VERSION = "daily-review-prompt-v1"
+ACTIVE_DAILY_REVIEW_GENERATION_STATUSES = ("pending", "running")
 
 TRADING_ADVICE_TERMS = [
     "买入",
@@ -69,7 +71,63 @@ async def _lock_daily_review_generation(
 ) -> None:
     lock_digest = hashlib.sha256(f"daily-review:{user_id}:{review_date.isoformat()}".encode()).digest()
     lock_key = int.from_bytes(lock_digest[:8], byteorder="big", signed=True)
-    await session.execute(text("SELECT pg_advisory_xact_lock(:lock_key)"), {"lock_key": lock_key})
+    locked = (
+        await session.execute(text("SELECT pg_try_advisory_xact_lock(:lock_key)"), {"lock_key": lock_key})
+    ).scalar_one()
+    if not locked:
+        raise AppError(
+            ErrorCode.USER_DAILY_REVIEW_GENERATION_IN_PROGRESS,
+            "该日期复盘正在生成中，请稍后查看结果或重试",
+            status_code=409,
+        )
+
+
+def _active_generation_timeout_seconds(settings: Settings) -> int:
+    return max(settings.ai_request_timeout_seconds * 3, 180)
+
+
+def _is_stale_generation_task(task: AITask, settings: Settings) -> bool:
+    return task.created_at <= utc_now() - timedelta(seconds=_active_generation_timeout_seconds(settings))
+
+
+async def _active_daily_review_generation_task(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    review_id: uuid.UUID,
+    settings: Settings,
+    release_stale: bool,
+) -> AITask | None:
+    task = (
+        await session.execute(
+            select(AITask)
+            .where(
+                AITask.user_id == user_id,
+                AITask.task_type == "user_daily_review_generation",
+                AITask.target_type == "daily_review",
+                AITask.target_id == review_id,
+                AITask.status.in_(ACTIVE_DAILY_REVIEW_GENERATION_STATUSES),
+            )
+            .order_by(AITask.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if task and release_stale and _is_stale_generation_task(task, settings):
+        task.status = "failed"
+        task.failed_at = utc_now()
+        task.error_code = ErrorCode.REVIEW_AI_GENERATION_FAILED.value
+        await session.flush()
+        return None
+    return task
+
+
+def _raise_generation_in_progress(task: AITask) -> None:
+    raise AppError(
+        ErrorCode.USER_DAILY_REVIEW_GENERATION_IN_PROGRESS,
+        "该日期复盘正在生成中，请稍后查看结果或重试",
+        status_code=409,
+        details={"ai_task_id": str(task.id), "status": task.status},
+    )
 
 
 def _safe_text(value: str | None, max_length: int = 240) -> str:
@@ -705,33 +763,13 @@ async def _next_version_number(session: AsyncSession, review_id: uuid.UUID) -> i
 async def _generate_ai_review(
     session: AsyncSession,
     *,
-    user_id: uuid.UUID,
-    review_id: uuid.UUID,
+    task: AITask,
+    provider: Any,
+    api_key: str,
     rule_snapshot: dict[str, Any],
-    fingerprint: str,
     settings: Settings,
     request_id: str | None,
-) -> tuple[AITask | None, DailyReviewAIResult | None, str | None]:
-    provider = await get_enabled_provider(session, user_id)
-    if not provider:
-        return None, None, None
-    now = utc_now()
-    task = AITask(
-        user_id=user_id,
-        task_type="user_daily_review_generation",
-        target_type="daily_review",
-        target_id=review_id,
-        provider_config_id=provider.id,
-        status="running",
-        prompt_version=DAILY_REVIEW_PROMPT_VERSION,
-        schema_version=DAILY_REVIEW_SCHEMA_VERSION,
-        input_hash=fingerprint,
-        created_at=now,
-        started_at=now,
-    )
-    session.add(task)
-    await session.flush()
-    api_key = get_secret_cipher(settings).decrypt_secret(provider.encrypted_api_key)
+) -> tuple[DailyReviewAIResult | None, str | None]:
     last_raw = ""
     last_error: AppError | None = None
     validation_errors: list[dict[str, str]] = []
@@ -767,7 +805,7 @@ async def _generate_ai_review(
             attempt.status = "succeeded"
             task.status = "succeeded"
             task.completed_at = utc_now()
-            return task, parsed, provider.model_name
+            return parsed, provider.model_name
         except AppError as exc:
             attempt.status = "failed"
             attempt.error_code = exc.code.value
@@ -783,7 +821,7 @@ async def _generate_ai_review(
     task.status = "failed"
     task.failed_at = utc_now()
     task.error_code = last_error.code.value if last_error else ErrorCode.REVIEW_AI_GENERATION_FAILED.value
-    return task, None, provider.model_name
+    return None, provider.model_name
 
 
 def _validate_ai_review(parsed: DailyReviewAIResult, rule_snapshot: dict[str, Any]) -> None:
@@ -793,6 +831,55 @@ def _validate_ai_review(parsed: DailyReviewAIResult, rule_snapshot: dict[str, An
     text = parsed.model_dump_json()
     if any(term in text for term in TRADING_ADVICE_TERMS):
         raise AppError(ErrorCode.AI_SCHEMA_VALIDATION_FAILED, "AI 复盘包含交易建议表达", status_code=502)
+
+
+async def _create_running_daily_review_task(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    review: DailyReview,
+    fingerprint: str,
+    settings: Settings,
+) -> tuple[AITask | None, Any | None, str | None]:
+    provider = await get_enabled_provider(session, user_id)
+    if not provider:
+        return None, None, None
+    active = await _active_daily_review_generation_task(
+        session,
+        user_id=user_id,
+        review_id=review.id,
+        settings=settings,
+        release_stale=True,
+    )
+    if active:
+        _raise_generation_in_progress(active)
+    now = utc_now()
+    task = AITask(
+        user_id=user_id,
+        task_type="user_daily_review_generation",
+        target_type="daily_review",
+        target_id=review.id,
+        provider_config_id=provider.id,
+        status="running",
+        prompt_version=DAILY_REVIEW_PROMPT_VERSION,
+        schema_version=DAILY_REVIEW_SCHEMA_VERSION,
+        input_hash=fingerprint,
+        created_at=now,
+        started_at=now,
+    )
+    session.add(task)
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise AppError(
+            ErrorCode.USER_DAILY_REVIEW_GENERATION_IN_PROGRESS,
+            "该日期复盘正在生成中，请稍后查看结果或重试",
+            status_code=409,
+        ) from exc
+    await session.commit()
+    api_key = get_secret_cipher(settings).decrypt_secret(provider.encrypted_api_key)
+    return task, provider, api_key
 
 
 async def get_daily_review_or_404(
@@ -811,7 +898,7 @@ async def get_daily_review_or_404(
     return review
 
 
-async def generate_daily_review(
+async def _generate_daily_review_legacy(
     session: AsyncSession,
     *,
     user_id: uuid.UUID,
@@ -944,6 +1031,171 @@ async def generate_daily_review(
     return await build_daily_review_detail(session, user_id=user_id, review_id=review.id, settings=settings)
 
 
+async def generate_daily_review(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    review_date: date,
+    force: bool,
+    use_ai: bool,
+    settings: Settings,
+    request_id: str | None,
+) -> DailyReviewDetailOut:
+    _validate_review_date(review_date, settings)
+    await _lock_daily_review_generation(session, user_id=user_id, review_date=review_date)
+    review = (
+        await session.execute(
+            select(DailyReview).where(DailyReview.user_id == user_id, DailyReview.review_date == review_date)
+        )
+    ).scalar_one_or_none()
+    if review:
+        active = await _active_daily_review_generation_task(
+            session,
+            user_id=user_id,
+            review_id=review.id,
+            settings=settings,
+            release_stale=True,
+        )
+        if active:
+            _raise_generation_in_progress(active)
+    rule_snapshot, fingerprint, selected_items = await build_rule_snapshot(
+        session,
+        user_id=user_id,
+        review_date=review_date,
+        settings=settings,
+    )
+    if review and review.input_fingerprint == fingerprint and not force and review.current_version_id:
+        return await build_daily_review_detail(session, user_id=user_id, review_id=review.id, settings=settings)
+    now = utc_now()
+    if not review:
+        review = DailyReview(
+            user_id=user_id,
+            review_date=review_date,
+            status=rule_snapshot["data_state"],
+            input_fingerprint=fingerprint,
+            generated_at=now,
+        )
+        session.add(review)
+        await session.flush()
+
+    ai_task: AITask | None = None
+    ai_result: DailyReviewAIResult | None = None
+    model_name: str | None = None
+    generation_mode = "rules_only"
+    status = rule_snapshot["data_state"]
+    if use_ai and rule_snapshot["data_state"] != "empty":
+        provider: Any | None = None
+        api_key: str | None = None
+        ai_task, provider, api_key = await _create_running_daily_review_task(
+            session,
+            user_id=user_id,
+            review=review,
+            fingerprint=fingerprint,
+            settings=settings,
+        )
+        if ai_task and provider and api_key:
+            try:
+                ai_result, model_name = await _generate_ai_review(
+                    session,
+                    task=ai_task,
+                    provider=provider,
+                    api_key=api_key,
+                    rule_snapshot=rule_snapshot,
+                    settings=settings,
+                    request_id=request_id,
+                )
+            except Exception:
+                await session.rollback()
+                persisted_task = await session.get(AITask, ai_task.id)
+                if persisted_task and persisted_task.status in ACTIVE_DAILY_REVIEW_GENERATION_STATUSES:
+                    persisted_task.status = "failed"
+                    persisted_task.failed_at = utc_now()
+                    persisted_task.error_code = ErrorCode.REVIEW_AI_GENERATION_FAILED.value
+                    await session.commit()
+                raise
+            if ai_result:
+                generation_mode = "rules_and_ai"
+            else:
+                generation_mode = "rules_with_ai_fallback"
+                status = "partial"
+                rule_snapshot["limitations"] = sorted(
+                    set([*rule_snapshot.get("limitations", []), "AI 复盘摘要生成失败，已保留程序聚合结果。"])
+                )
+
+    version = DailyReviewVersion(
+        daily_review_id=review.id,
+        version_number=await _next_version_number(session, review.id),
+        status=status,
+        generation_mode=generation_mode,
+        ai_task_id=ai_task.id if ai_task else None,
+        rule_snapshot=rule_snapshot,
+        ai_structured_result=ai_result.model_dump(mode="json") if ai_result else None,
+        ai_narrative=ai_result.executive_summary if ai_result else rule_snapshot["rule_summary"],
+        input_fingerprint=fingerprint,
+        prompt_version=DAILY_REVIEW_PROMPT_VERSION if ai_task else None,
+        schema_version=DAILY_REVIEW_SCHEMA_VERSION,
+        provider_config_id=ai_task.provider_config_id if ai_task else None,
+        model_name=model_name,
+        generated_at=now,
+        created_at=now,
+    )
+    session.add(version)
+    await session.flush()
+    for item in selected_items:
+        session.add(
+            DailyReviewItem(
+                daily_review_version_id=version.id,
+                information_item_id=item["information_item_id"],
+                analysis_version_id=item["analysis_version_id"],
+                information_content_id=item["information_content_id"],
+                inclusion_type=item["inclusion_type"],
+                inclusion_reason=item["inclusion_reason"],
+                effective_date=item["effective_date"],
+                relation_scope=item["relation_scope"],
+                relation_status_snapshot=item["relation_status_snapshot"],
+                is_watchlist_related=item["is_watchlist_related"],
+                created_at=now,
+            )
+        )
+    review.status = status
+    review.current_version_id = version.id
+    review.input_fingerprint = fingerprint
+    review.generated_at = now
+    review.stale_at = None
+    event_type = "user_daily_review.partial" if status == "partial" else "user_daily_review.generated"
+    severity = "notice" if status == "partial" else "info"
+    await create_business_event(
+        session,
+        user_id=user_id,
+        event_type=event_type,
+        subject_type="daily_review",
+        subject_id=review.id,
+        severity=severity,
+        payload={
+            "review_date": review_date.isoformat(),
+            "status": status,
+            "version_number": version.version_number,
+            **rule_snapshot["overview"],
+        },
+        source="daily_review_service",
+        idempotency_key=f"{event_type}:{review.id}:{version.id}",
+        request_id=request_id,
+        correlation_id=request_id,
+    )
+    await add_audit_log(
+        session,
+        actor_user_id=user_id,
+        action="daily_review.force_generate" if force else "daily_review.generate",
+        target_type="daily_review",
+        target_id=review.id,
+        result="success",
+        request_id=request_id,
+        metadata={"review_date": review_date.isoformat(), "status": status, "version_number": version.version_number},
+    )
+    await session.commit()
+    return await build_daily_review_detail(session, user_id=user_id, review_id=review.id, settings=settings)
+
+
 async def _current_version(session: AsyncSession, review: DailyReview) -> DailyReviewVersion | None:
     if not review.current_version_id:
         return None
@@ -971,7 +1223,11 @@ async def _versions(session: AsyncSession, review_id: uuid.UUID) -> list[DailyRe
     )
 
 
-def _summary_out(review: DailyReview, version: DailyReviewVersion | None) -> DailyReviewSummaryOut:
+def _summary_out(
+    review: DailyReview,
+    version: DailyReviewVersion | None,
+    active_task: AITask | None = None,
+) -> DailyReviewSummaryOut:
     overview = version.rule_snapshot.get("overview", {}) if version else {}
     return DailyReviewSummaryOut(
         id=review.id,
@@ -989,6 +1245,9 @@ def _summary_out(review: DailyReview, version: DailyReviewVersion | None) -> Dai
         updated_at=review.updated_at,
         overview=overview,
         ai_available=bool(version and version.ai_structured_result),
+        generation_in_progress=active_task is not None,
+        generation_task_id=active_task.id if active_task else None,
+        generation_task_status=active_task.status if active_task else None,
     )
 
 
@@ -1117,6 +1376,7 @@ async def list_daily_reviews(
     date_to: date | None,
     limit: int,
     offset: int,
+    settings: Settings,
 ) -> tuple[list[DailyReviewSummaryOut], int]:
     statement = select(DailyReview).where(DailyReview.user_id == user_id, DailyReview.archived_at.is_(None))
     if status:
@@ -1133,7 +1393,19 @@ async def list_daily_reviews(
     )
     summaries: list[DailyReviewSummaryOut] = []
     for review in reviews:
-        summaries.append(_summary_out(review, await _current_version(session, review)))
+        summaries.append(
+            _summary_out(
+                review,
+                await _current_version(session, review),
+                await _active_daily_review_generation_task(
+                    session,
+                    user_id=user_id,
+                    review_id=review.id,
+                    settings=settings,
+                    release_stale=True,
+                ),
+            )
+        )
     return summaries, total
 
 
@@ -1150,7 +1422,14 @@ async def build_daily_review_detail(
     await session.refresh(review)
     versions = await _versions(session, review.id)
     current = next((version for version in versions if version.id == review.current_version_id), None)
-    summary = _summary_out(review, current)
+    active_task = await _active_daily_review_generation_task(
+        session,
+        user_id=user_id,
+        review_id=review.id,
+        settings=settings,
+        release_stale=True,
+    )
+    summary = _summary_out(review, current, active_task)
     return DailyReviewDetailOut(
         **summary.model_dump(),
         current_version=current,

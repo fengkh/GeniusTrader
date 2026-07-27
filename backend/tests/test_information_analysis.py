@@ -1,9 +1,12 @@
 import json
 
+import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
-from app.models.ai import AITaskAttempt
+from app.core.errors import AppError, ErrorCode
+from app.models.ai import AITask, AITaskAttempt
+from app.services.information import _parse_analysis_json
 from tests.conftest import create_user, login, seed_stock, unique_username
 
 
@@ -96,6 +99,23 @@ async def _login_with_provider(client: AsyncClient, db_session):
     assert provider.status_code == 201
 
 
+async def test_analyze_requires_user_provider_before_creating_task(client: AsyncClient, db_session):
+    username = unique_username("analysis_no_provider")
+    await create_user(db_session, username=username, password="Password12345")
+    response = await login(client, username=username, password="Password12345")
+    assert response.status_code == 200
+    item = await client.post("/api/v1/information/manual", json={"text": "需要用户自行配置 Provider 后才能分析。"})
+    item_id = item.json()["data"]["id"]
+
+    before = (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one()
+    response = await client.post(f"/api/v1/information/{item_id}/analyze", json={})
+    after = (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one()
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "AI_PROVIDER_REQUIRED"
+    assert after == before
+
+
 async def test_information_analysis_success_creates_version_and_suggestions(client: AsyncClient, db_session, monkeypatch):
     await _login_with_provider(client, db_session)
     item = await client.post(
@@ -103,6 +123,7 @@ async def test_information_analysis_success_creates_version_and_suggestions(clie
         json={"text": "贵州茅台出现平台讨论，含事实、观点和未经证实传闻。", "source_type": "news"},
     )
     item_id = item.json()["data"]["id"]
+    assert (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one() == 0
 
     async def fake_call(**kwargs):
         from app.services.ai_gateway import AIChatResult
@@ -128,6 +149,55 @@ async def test_information_analysis_success_creates_version_and_suggestions(clie
     assert data["stock_relations"][0]["relation_status"] == "suggested"
     assert data["verification_items"][0]["status"] == "pending"
     assert data["latest_analysis"]["structured_result"]["rumors"][0]["claim"] == "未经证实的扩产传闻"
+    tasks = (await db_session.execute(select(AITask))).scalars().all()
+    assert len(tasks) == 1
+    assert tasks[0].task_type == "information_sentiment_analysis"
+    assert tasks[0].status == "succeeded"
+
+
+async def test_metadata_only_announcement_prompt_requires_pdf_body_limitation(client: AsyncClient, db_session, monkeypatch):
+    await _login_with_provider(client, db_session)
+    item = await client.post(
+        "/api/v1/information/manual",
+        json={
+            "source_type": "announcement",
+            "text": "【公告元数据导入】\n当前仅导入公告元数据，未提取、补写或长期保存公告 PDF 原文。\n标题：Alpha Tech 临时公告\n限制：来源授权、完整性、及时性、稳定性及长期可用性尚未最终确认。",
+        },
+    )
+    item_id = item.json()["data"]["id"]
+
+    async def fake_call(**kwargs):
+        from app.services.ai_gateway import AIChatResult
+
+        prompt = kwargs["messages"][1]["content"]
+        assert "Item source_type: announcement" in prompt
+        assert "当前仅导入公告元数据" in prompt
+        assert "If an announcement item says it is metadata_only or lacks extracted PDF text" in prompt
+        assert "limitations must state that only metadata is available" in prompt
+        assert "do not write or infer the missing announcement body" in prompt
+        return AIChatResult(
+            content=valid_analysis_json(),
+            http_status=200,
+            duration_ms=10,
+            input_tokens=10,
+            output_tokens=10,
+        )
+
+    monkeypatch.setattr("app.services.ai_gateway.call_openai_chat_completion", fake_call)
+    response = await client.post(f"/api/v1/information/{item_id}/analyze", json={})
+
+    assert response.status_code == 200
+    assert response.json()["data"]["latest_analysis"]["analysis_status"] == "succeeded"
+
+
+def test_analysis_schema_rejects_extra_trading_advice_field():
+    payload = json.loads(valid_analysis_json())
+    payload["trading_advice"] = {"action": "buy", "target_price": "not allowed"}
+
+    with pytest.raises(AppError) as error:
+        _parse_analysis_json(json.dumps(payload, ensure_ascii=False))
+
+    assert error.value.code == ErrorCode.AI_SCHEMA_VALIDATION_FAILED
 
 
 async def test_analysis_invalid_json_is_repaired_once(client: AsyncClient, db_session, monkeypatch):

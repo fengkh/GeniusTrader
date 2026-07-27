@@ -156,8 +156,14 @@ def _safe_payload_reference(payload: dict[str, object]) -> dict[str, object]:
 
 def _missing_fields(raw: RawAnnouncementRecord, symbols: list[str], document_url: str | None) -> list[str]:
     missing: list[str] = []
+    raw_field_values = {
+        "provider_announcement_id": raw.provider_record_id,
+        "title": raw.title,
+        "published_at": raw.published_at,
+        "source_page_url": raw.source_page_url,
+    }
     for field_name in REQUIRED_FIELDS:
-        value = getattr(raw, field_name)
+        value = raw_field_values[field_name]
         if value is None or value == "":
             missing.append(field_name)
     if not symbols:

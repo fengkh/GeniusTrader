@@ -112,6 +112,11 @@ AI 输出 Schema：
 - `input_fingerprint` 至少包含用户、日期、纳入信息、内容版本、最新成功分析版本、股票关系、自选股关注原因、用户标签、Prompt 版本和 Schema 版本。
 - 输入未变化且非 force 时返回已有当前版本，不重复调用 AI，不重复生成通知。
 - 输入变化时标记 `stale`，不自动覆盖旧版本。
+- 复盘生成和重新生成均为用户主动操作，同一用户同一 `review_date` 同一时刻只允许一个生成任务。
+- 前端在生成请求期间禁用重新生成入口并显示“生成中”；页面刷新后根据后端返回的运行中状态继续禁用。
+- 后端以数据库可见的 `user_daily_review_generation` 运行中任务和唯一约束保护并发，不以单进程内存锁作为唯一保护。
+- 重复请求返回 `USER_DAILY_REVIEW_GENERATION_IN_PROGRESS` 或已有运行中任务信息，不重复创建 AI task、复盘版本、BusinessEvent 或 Notification，也不重复调用 AI Provider。
+- 生成成功、失败或超时释放运行中保护；完成后用户可以再次主动 force 生成新版本，已有版本继续保留。
 
 ## 复盘状态
 

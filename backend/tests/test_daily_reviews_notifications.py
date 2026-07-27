@@ -1,10 +1,12 @@
+import asyncio
 import json
 from datetime import UTC, date, datetime
 
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.time import utc_now
+from app.models.ai import AITask
 from app.models.information import (
     InformationAnalysisVersion,
     InformationContent,
@@ -14,7 +16,9 @@ from app.models.information import (
 )
 from app.models.review_notification import (
     BusinessEvent,
+    DailyReview,
     DailyReviewItem,
+    DailyReviewVersion,
     Notification,
     NotificationDelivery,
 )
@@ -317,6 +321,184 @@ async def test_ai_review_success_fallback_idempotency_and_force(client: AsyncCli
     assert fallback_data["status"] == "partial"
     assert fallback_data["current_version"]["generation_mode"] == "rules_with_ai_fallback"
     assert fallback_data["current_version"]["rule_snapshot"]["overview"]["total_information_count"] == 1
+
+
+async def test_daily_review_generation_rejects_concurrent_duplicate_without_duplicate_side_effects(
+    client: AsyncClient,
+    db_session,
+    monkeypatch,
+):
+    user = await _login_user(client, db_session)
+    stock = await _add_watchlist_stock(client, db_session)
+    item_id = await _manual_item(client, stock_id=str(stock.id))
+    await _insert_success_analysis(db_session, item_id)
+    provider = await client.post(
+        "/api/v1/ai/providers",
+        json={
+            "provider_name": "Mock",
+            "base_url": "http://127.0.0.1:9999/v1",
+            "model_name": "mock-model",
+            "api_key": "secret",
+            "enabled": True,
+        },
+    )
+    assert provider.status_code == 201
+    started = asyncio.Event()
+    release = asyncio.Event()
+    calls = {"count": 0}
+
+    async def slow_success(**kwargs):
+        from app.services.ai_gateway import AIChatResult
+
+        calls["count"] += 1
+        started.set()
+        await release.wait()
+        return AIChatResult(
+            content=ai_review_payload([item_id]),
+            http_status=200,
+            duration_ms=10,
+            input_tokens=10,
+            output_tokens=10,
+        )
+
+    monkeypatch.setattr("app.services.ai_gateway.call_openai_chat_completion", slow_success)
+    first_request = asyncio.create_task(client.post("/api/v1/reviews", json={"review_date": REVIEW_DATE.isoformat()}))
+    await asyncio.wait_for(started.wait(), timeout=5)
+
+    review = (
+        await db_session.execute(
+            select(DailyReview).where(DailyReview.user_id == user.id, DailyReview.review_date == REVIEW_DATE)
+        )
+    ).scalar_one()
+    running_detail = await client.get(f"/api/v1/reviews/{review.id}")
+    running_data = running_detail.json()["data"]
+    assert running_data["generation_in_progress"] is True
+    assert running_data["generation_task_status"] == "running"
+
+    duplicate = await client.post("/api/v1/reviews", json={"review_date": REVIEW_DATE.isoformat(), "force": True})
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "USER_DAILY_REVIEW_GENERATION_IN_PROGRESS"
+    assert (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one() == 1
+    assert (await db_session.execute(select(func.count()).select_from(DailyReviewVersion))).scalar_one() == 0
+    assert (await db_session.execute(select(func.count()).select_from(BusinessEvent))).scalar_one() == 0
+    assert (await db_session.execute(select(func.count()).select_from(Notification))).scalar_one() == 0
+    assert calls["count"] == 1
+
+    release.set()
+    first = await first_request
+    assert first.status_code == 201
+    assert first.json()["data"]["current_version"]["version_number"] == 1
+    assert first.json()["data"]["generation_in_progress"] is False
+    assert calls["count"] == 1
+    assert (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one() == 1
+    assert (await db_session.execute(select(func.count()).select_from(DailyReviewVersion))).scalar_one() == 1
+    assert (await db_session.execute(select(func.count()).select_from(BusinessEvent))).scalar_one() == 1
+    assert (await db_session.execute(select(func.count()).select_from(Notification))).scalar_one() == 1
+
+    force = await client.post("/api/v1/reviews", json={"review_date": REVIEW_DATE.isoformat(), "force": True})
+    assert force.status_code == 201
+    assert force.json()["data"]["current_version"]["version_number"] == 2
+    assert calls["count"] == 2
+
+
+async def test_daily_review_generation_failure_releases_guard_and_allows_retry(
+    client: AsyncClient,
+    db_session,
+    monkeypatch,
+):
+    await _login_user(client, db_session)
+    stock = await _add_watchlist_stock(client, db_session)
+    item_id = await _manual_item(client, stock_id=str(stock.id), published_at=datetime(2026, 7, 25, 1, 0, tzinfo=UTC))
+    await _insert_success_analysis(db_session, item_id)
+    provider = await client.post(
+        "/api/v1/ai/providers",
+        json={
+            "provider_name": "Mock",
+            "base_url": "http://127.0.0.1:9999/v1",
+            "model_name": "mock-model",
+            "api_key": "secret",
+            "enabled": True,
+        },
+    )
+    assert provider.status_code == 201
+
+    async def invalid_ai_result(**kwargs):
+        from app.services.ai_gateway import AIChatResult
+
+        return AIChatResult(
+            content='{"schema_version":"daily-review-v1"}',
+            http_status=200,
+            duration_ms=10,
+            input_tokens=1,
+            output_tokens=1,
+        )
+
+    monkeypatch.setattr("app.services.ai_gateway.call_openai_chat_completion", invalid_ai_result)
+    first = await client.post("/api/v1/reviews", json={"review_date": "2026-07-25"})
+    assert first.status_code == 201
+    assert first.json()["data"]["current_version"]["generation_mode"] == "rules_with_ai_fallback"
+    failed_task = (await db_session.execute(select(AITask))).scalar_one()
+    assert failed_task.status == "failed"
+
+    async def valid_ai_result(**kwargs):
+        from app.services.ai_gateway import AIChatResult
+
+        return AIChatResult(
+            content=ai_review_payload([item_id]),
+            http_status=200,
+            duration_ms=10,
+            input_tokens=10,
+            output_tokens=10,
+        )
+
+    monkeypatch.setattr("app.services.ai_gateway.call_openai_chat_completion", valid_ai_result)
+    retry = await client.post("/api/v1/reviews", json={"review_date": "2026-07-25", "force": True})
+    assert retry.status_code == 201
+    assert retry.json()["data"]["current_version"]["generation_mode"] == "rules_and_ai"
+    assert retry.json()["data"]["current_version"]["version_number"] == 2
+    assert (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one() == 2
+
+
+async def test_daily_review_generation_guard_is_scoped_by_user_and_date(client: AsyncClient, db_session):
+    user_a = await _login_user(client, db_session, "guard_a")
+    review_a = DailyReview(
+        user_id=user_a.id,
+        review_date=REVIEW_DATE,
+        status="partial",
+        input_fingerprint="running",
+        generated_at=utc_now(),
+    )
+    db_session.add(review_a)
+    await db_session.flush()
+    db_session.add(
+        AITask(
+            user_id=user_a.id,
+            task_type="user_daily_review_generation",
+            target_type="daily_review",
+            target_id=review_a.id,
+            provider_config_id=None,
+            status="running",
+            prompt_version="daily-review-prompt-v1",
+            schema_version="daily-review-v1",
+            input_hash="running",
+            created_at=utc_now(),
+            started_at=utc_now(),
+        )
+    )
+    await db_session.commit()
+
+    same_date = await client.post("/api/v1/reviews", json={"review_date": REVIEW_DATE.isoformat(), "use_ai": False, "force": True})
+    assert same_date.status_code == 409
+    assert same_date.json()["error"]["code"] == "USER_DAILY_REVIEW_GENERATION_IN_PROGRESS"
+
+    other_date = await client.post("/api/v1/reviews", json={"review_date": "2026-07-25", "use_ai": False})
+    assert other_date.status_code == 201
+
+    await client.post("/api/v1/auth/logout")
+    user_b = await create_user(db_session, username=unique_username("guard_b"), password="Password12345")
+    await login(client, username=user_b.username, password="Password12345")
+    other_user_same_date = await client.post("/api/v1/reviews", json={"review_date": REVIEW_DATE.isoformat(), "use_ai": False})
+    assert other_user_same_date.status_code == 201
 
 
 async def test_stale_detection_and_notifications(client: AsyncClient, db_session):
