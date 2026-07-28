@@ -430,3 +430,12 @@
 - 范围：`/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分接入真实 API。
 - 仍保持 Mock：`/today`、`/watchlist`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心、微信公众号状态和微信消息预览。
 - 禁止：第四阶段仍不接入真实行情 Provider、真实公告资讯 Provider、全市场真实复盘、估值后端、自动调度、任务队列、微信公众号、邮件、Web Push、移动 Push 或 Docker。
+
+## 第七阶段 Checkpoint A 补充：真实日级行情工程契约
+
+- 范围：建立日级行情 Provider 抽象、Tushare 技术候选 Adapter、行情快照迁移、同步服务、API、管理员页面和 CLI。
+- 前端：`/today`、`/watchlist`、`/watchlist/[stockId]` 和 `/settings/market-data` 接入真实行情状态契约；无真实快照时显示 unavailable，不回退为 Mock 行情。
+- 授权：Tushare 当前仅为开发候选，默认 `authorization_status=unverified`、`production_enabled=false`；普通个人 Token 不能被写成 GeniusTrader 生产授权。
+- 数据边界：仅支持最近完整交易日和收盘后日级快照；不承诺实时行情、盘口、五档、自动分钟刷新、全市场宽度、财务或估值。
+- 降级：无 Token、Provider 关闭、真实网络关闭、授权不足、来源变化、网络失败或字段缺失时，只影响行情模块，不影响登录、自选股、信息中心、复盘或站内通知。
+- 禁止：AI 不得生成、补全或覆盖行情数字、K 线、成交量、成交额、市值、估值或程序计算指标；行情同步不得创建股票。

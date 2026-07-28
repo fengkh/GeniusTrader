@@ -353,3 +353,11 @@
 - 已完成：SSE 官方目录分页、BSE 官方新旧代码映射、BaoStock development fallback、来源优先级合并、完整度门槛、真实开发库同步。
 - 已暂停但未关闭：SZSE 官方目录来源，当前真实验证为 HTTP 500 / `network_error`。
 - 下一步仅在 6A 浏览器真实自选股页面验收通过后，恢复公告真实 Smoke；不得因为 BaoStock fallback 可用而宣称证券主数据生产来源已冻结。
+
+## 2026-07-28 第七阶段 Checkpoint A 状态
+
+- 当前只执行无 Token 离线工程实现：行情 Provider 抽象、迁移、服务、API、前端状态接入、BSE 公告 Provider 骨架、CLI、Docker、备份恢复和文档。
+- Tushare 保持开发候选，不作为生产主 Provider；真实联网 Smoke、SH/SZ/BJ 覆盖验证和商业授权冻结进入 Checkpoint B。
+- `/today`、`/watchlist`、`/watchlist/[stockId]` 和 `/settings/market-data` 接入真实行情状态契约；没有真实快照时展示 unavailable，不展示 Mock 行情。
+- 生产部署进入草案和文件准备，但正式上线仍需域名、HTTPS、密钥、数据库、备份策略、Provider 授权和人工 Smoke 验收。
+- 不进入自动交易、实时行情、微信公众号、支付、复杂调度或外部通知阶段。

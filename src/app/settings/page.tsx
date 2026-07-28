@@ -83,6 +83,17 @@ export default function SettingsPage() {
           </Link>
           {user?.role === "admin" ? (
             <Link
+              href="/settings/market-data"
+              className="focus-ring rounded-lg border border-slate-200 bg-white p-4 hover:bg-slate-50"
+            >
+              <p className="text-sm font-semibold text-slate-950">行情数据</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                查看日级行情快照来源、授权状态、同步运行和管理员手动同步入口。
+              </p>
+            </Link>
+          ) : null}
+          {user?.role === "admin" ? (
+            <Link
               href="/settings/security-master"
               className="focus-ring rounded-lg border border-slate-200 bg-white p-4 hover:bg-slate-50"
             >

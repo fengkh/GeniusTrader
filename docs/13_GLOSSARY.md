@@ -345,3 +345,14 @@ GeniusTrader 后端使用的数据库迁移工具。数据库结构变更必须�
 - 技术候选来源：Spike 证明具备一定公开访问和字段覆盖能力的来源；仍需授权、留存、再展示和稳定性确认。
 - 正式数据供应商：经过产品负责人、技术和合规确认后可在 MVP 中接入的生产来源；当前公告与资讯供应商尚未冻结。
 - PDF 探测：仅验证公告文档是否可访问、是否为 PDF、页数、文本可抽取性和大小限制，不等于允许长期保存或再展示全文。
+
+## 第七阶段行情术语补充
+
+- MarketDataProvider：行情数据 Provider 抽象层，用于获取交易日历和日级行情快照。Provider 技术可达不代表生产授权成立。
+- MarketDataSource：行情来源登记实体，记录 `source_code`、授权状态、使用范围、生产启用状态、能力、健康状态和限制。不得保存 Token、合同全文或完整第三方响应。
+- StockDailySnapshot：单只股票在某个交易日、某个行情来源下的日级行情快照。只允许由程序基于 Provider 数据标准化写入，AI 不得生成、补全或覆盖。
+- `authorization_status`：Provider 授权状态，包括 `unverified`、`personal_development_only`、`commercial_evaluation`、`commercially_authorized`、`prohibited` 和 `expired`。
+- `usage_scope`：Provider 数据允许使用范围，包括 `local_development`、`internal_testing`、`private_beta`、`public_display`、`redistribution` 和 `derived_data_display`。
+- `production_enabled`：来源是否允许在生产环境启用的内部开关。技术 Smoke 成功不能自动把该字段改为 `true`。
+- `unavailable` 行情状态：页面无可展示真实行情快照时的状态。该状态下前端不得回退展示 Mock 价格、随机涨跌、虚假分时或虚假 K 线。
+- `BSE_DISCLOSURE`：北交所公告候选 Provider 代码。当前为候选骨架，真实候选、PDF、导入和 AI 闭环仍需 Provider 可达后补验。

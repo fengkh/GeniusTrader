@@ -20,12 +20,15 @@ import { EmptyState } from "@/components/status/EmptyState";
 import { ErrorState } from "@/components/status/ErrorState";
 import { LoadingSkeleton } from "@/components/status/LoadingSkeleton";
 import { humanizeApiError } from "@/lib/api/errors";
+import { getWatchlistMarketSnapshots } from "@/lib/api/market-data";
 import { getSecurityMasterStatus } from "@/lib/api/security-master";
 import { searchStocks } from "@/lib/api/stocks";
 import type {
+  DecimalValue,
   SecurityMasterStatus,
   StockRead,
   UserTagRead,
+  WatchlistMarketSnapshot,
   WatchlistGroupRead,
   WatchlistItemRead
 } from "@/lib/api/types";
@@ -71,6 +74,7 @@ export default function WatchlistPage() {
   const [items, setItems] = useState<WatchlistItemRead[]>([]);
   const [groups, setGroups] = useState<WatchlistGroupRead[]>([]);
   const [tags, setTags] = useState<UserTagRead[]>([]);
+  const [marketSnapshots, setMarketSnapshots] = useState<Record<string, WatchlistMarketSnapshot>>({});
   const [securityStatus, setSecurityStatus] = useState<SecurityMasterStatus | null>(null);
   const [query, setQuery] = useState("");
   const [groupId, setGroupId] = useState(ALL);
@@ -91,15 +95,17 @@ export default function WatchlistPage() {
     setLoading(true);
     setError(null);
     try {
-      const [watchlistPage, groupRows, tagRows, status] = await Promise.all([
+      const [watchlistPage, groupRows, tagRows, status, snapshotRows] = await Promise.all([
         listWatchlistItems({ limit: 100 }),
         listWatchlistGroups(),
         listWatchlistTags(),
-        getSecurityMasterStatus()
+        getSecurityMasterStatus(),
+        getWatchlistMarketSnapshots()
       ]);
       setItems(watchlistPage.items);
       setGroups(groupRows);
       setTags(tagRows);
+      setMarketSnapshots(Object.fromEntries(snapshotRows.map((row) => [row.watchlist_item_id, row])));
       setSecurityStatus(status);
     } catch (caught) {
       setError(humanizeApiError(caught));
@@ -178,7 +184,7 @@ export default function WatchlistPage() {
       <PageHeader
         eyebrow="真实自选股闭环"
         title="自选股"
-        description="证券基本信息来自证券目录同步；行情、财务、估值和技术指标仍未接入真实数据。"
+        description="证券基本信息来自证券目录同步；行情区域仅显示已入库的真实日级快照。"
         actions={
           <div className="flex flex-wrap gap-2">
             <button
@@ -208,8 +214,8 @@ export default function WatchlistPage() {
         <div className="flex gap-2">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
           <p>
-            证券基本信息来自证券目录同步；行情、财务、估值和技术指标仍未接入真实数据。
-            页面不显示实时行情，也不会基于股票代码临时创建不存在的股票。
+            证券基本信息来自证券目录同步；行情区域仅显示后端已入库的真实日级快照。暂无快照时显示空状态；
+            页面不会使用 Mock 价格、K线或分时图，也不会基于股票代码临时创建不存在的股票。
           </p>
         </div>
       </section>
@@ -282,7 +288,7 @@ export default function WatchlistPage() {
               </button>
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              当前显示 {filteredItems.length} / {items.length} 只；列表不包含行情、K线或估值结论。
+              当前显示 {filteredItems.length} / {items.length} 只；行情为空时明确显示“暂无真实行情数据”。
             </p>
           </section>
 
@@ -304,8 +310,8 @@ export default function WatchlistPage() {
             <EmptyState title="没有匹配的自选股" description="请调整搜索、分组、标签、交易所或板块筛选条件。" />
           ) : (
             <>
-              <DesktopWatchlistTable items={filteredItems} onEdit={openEdit} />
-              <MobileWatchlistList items={filteredItems} onEdit={openEdit} />
+              <DesktopWatchlistTable items={filteredItems} marketSnapshots={marketSnapshots} onEdit={openEdit} />
+              <MobileWatchlistList items={filteredItems} marketSnapshots={marketSnapshots} />
             </>
           )}
         </>
@@ -375,94 +381,136 @@ function SecurityDirectoryNotice({ status }: { status: SecurityMasterStatus }) {
 
 function DesktopWatchlistTable({
   items,
+  marketSnapshots,
   onEdit
 }: {
   items: WatchlistItemRead[];
+  marketSnapshots: Record<string, WatchlistMarketSnapshot>;
   onEdit: (item: WatchlistItemRead) => void;
 }) {
   return (
     <section className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:block">
-      <div className="grid grid-cols-[1.35fr_0.8fr_0.9fr_0.9fr_1fr_1fr_1.25fr_0.65fr] border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
+      <div className="grid grid-cols-[1.25fr_0.85fr_0.9fr_0.9fr_1.1fr_1fr_1.2fr_0.9fr] border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
         <span>股票</span>
-        <span>交易所</span>
+        <span>最新价 / 涨跌</span>
         <span>板块</span>
         <span>上市状态</span>
-        <span>数据来源</span>
+        <span>行情数据状态</span>
         <span>分组 / 标签</span>
         <span>关注原因</span>
         <span>操作</span>
       </div>
-      {items.map((item) => (
-        <div
-          key={item.id}
-          className="grid grid-cols-[1.35fr_0.8fr_0.9fr_0.9fr_1fr_1fr_1.25fr_0.65fr] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
-        >
-          <StockIdentity stock={item.stock} />
-          <p className="text-sm text-slate-700">{exchangeLabel(item.stock.exchange)}</p>
-          <p className="text-sm text-slate-700">{boardLabel(item.stock.board)}</p>
-          <StatusPill value={listingStatusLabel(item.stock.listing_status)} tone={statusTone(item.stock.listing_status)} />
-          <div className="text-xs leading-5 text-slate-600">
-            <p>{item.stock.source_code}</p>
-            <p>同步 {formatTime(item.stock.last_synced_at) ?? "暂无"}</p>
-          </div>
-          <div className="min-w-0 text-xs leading-5 text-slate-600">
-            <p className="font-medium text-slate-800">{item.group?.name ?? "未分组"}</p>
-            <p className="truncate">{item.tags.length ? item.tags.map((tag) => tag.name).join("；") : "无标签"}</p>
-          </div>
-          <p className="line-clamp-2 text-sm leading-6 text-slate-700">{item.attention_reason || "未填写"}</p>
-          <button
-            onClick={() => onEdit(item)}
-            className="focus-ring inline-flex h-8 items-center justify-center gap-1 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            type="button"
+      {items.map((item) => {
+        const market = marketSnapshots[item.id];
+        return (
+          <div
+            key={item.id}
+            className="grid grid-cols-[1.25fr_0.85fr_0.9fr_0.9fr_1.1fr_1fr_1.2fr_0.9fr] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
           >
-            <Edit3 className="h-3.5 w-3.5" />
-            编辑
-          </button>
-        </div>
-      ))}
+            <StockIdentity stock={item.stock} />
+            <MarketPriceCell market={market} />
+            <p className="text-sm text-slate-700">{boardLabel(item.stock.board)}</p>
+            <StatusPill value={listingStatusLabel(item.stock.listing_status)} tone={statusTone(item.stock.listing_status)} />
+            <MarketStatusCell market={market} />
+            <div className="min-w-0 text-xs leading-5 text-slate-600">
+              <p className="font-medium text-slate-800">{item.group?.name ?? "未分组"}</p>
+              <p className="truncate">{item.tags.length ? item.tags.map((tag) => tag.name).join("；") : "无标签"}</p>
+            </div>
+            <p className="line-clamp-2 text-sm leading-6 text-slate-700">{item.attention_reason || "未填写"}</p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/watchlist/${item.stock.id}`}
+                className="focus-ring inline-flex h-8 items-center justify-center rounded-md bg-slate-900 px-2 text-xs font-semibold text-white hover:bg-slate-800"
+              >
+                详情
+              </Link>
+              <button
+                onClick={() => onEdit(item)}
+                className="focus-ring inline-flex h-8 items-center justify-center gap-1 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                type="button"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                编辑
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </section>
   );
 }
 
 function MobileWatchlistList({
   items,
-  onEdit
+  marketSnapshots
 }: {
   items: WatchlistItemRead[];
-  onEdit: (item: WatchlistItemRead) => void;
+  marketSnapshots: Record<string, WatchlistMarketSnapshot>;
 }) {
   return (
     <section className="grid gap-2 lg:hidden">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => onEdit(item)}
-          className="focus-ring grid min-h-[88px] grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left shadow-sm active:bg-slate-50"
-          type="button"
-        >
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="truncate text-sm font-semibold text-slate-950">{displayName(item.stock)}</p>
-              <span className="shrink-0 text-[11px] text-slate-500">{item.stock.code}</span>
-              <StatusPill value={listingStatusLabel(item.stock.listing_status)} tone={statusTone(item.stock.listing_status)} />
+      {items.map((item) => {
+        const market = marketSnapshots[item.id];
+        const snapshot = market?.snapshot;
+        return (
+          <Link
+            key={item.id}
+            href={`/watchlist/${item.stock.id}`}
+            className="focus-ring grid min-h-[86px] grid-cols-[minmax(0,1fr)_96px] gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left shadow-sm active:bg-slate-50"
+          >
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <p className="truncate text-sm font-semibold text-slate-950">{displayName(item.stock)}</p>
+                <span className="shrink-0 text-[11px] text-slate-500">{item.stock.code}</span>
+                <StatusPill value={listingStatusLabel(item.stock.listing_status)} tone={statusTone(item.stock.listing_status)} />
+              </div>
+              <p className="mt-1 truncate text-[11px] text-slate-600">
+                {exchangeLabel(item.stock.exchange)} / {boardLabel(item.stock.board)} / {item.group?.name ?? "未分组"}
+              </p>
+              <p className="mt-1 truncate text-[11px] text-slate-500">
+                {item.tags.length ? item.tags.slice(0, 2).map((tag) => tag.name).join("；") : "无标签"}
+                {item.tags.length > 2 ? ` +${item.tags.length - 2}` : ""}
+              </p>
+              <p className="mt-1 truncate text-[11px] text-slate-500">{market?.message ?? "暂无真实行情数据"}</p>
             </div>
-            <p className="mt-1 truncate text-[11px] text-slate-600">
-              {exchangeLabel(item.stock.exchange)} / {boardLabel(item.stock.board)} / {item.stock.source_code}
-            </p>
-            <p className="mt-1 truncate text-[11px] text-slate-500">
-              {item.group?.name ?? "未分组"} · {item.tags.length ? item.tags.slice(0, 2).map((tag) => tag.name).join("；") : "无标签"}
-            </p>
-            <p className="mt-1 truncate text-[11px] text-slate-500">{item.attention_reason || "未填写关注原因"}</p>
-          </div>
-          <div className="flex flex-col items-end justify-between">
-            <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600">
-              行情未接入
-            </span>
-            <Edit3 className="h-4 w-4 text-slate-400" />
-          </div>
-        </button>
-      ))}
+            <div className="flex min-w-0 flex-col items-end justify-between">
+              <div className="text-right">
+                <p className="text-sm font-semibold text-slate-950">{snapshot?.close ? formatDecimal(snapshot.close) : "暂无"}</p>
+                <p className={`text-xs font-semibold ${changeTone(snapshot?.pct_change ?? null)}`}>
+                  {formatChange(snapshot?.pct_change ?? null)}
+                </p>
+              </div>
+              <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${marketStatusTone(market?.status)}`}>
+                {marketStatusLabel(market?.status)}
+              </span>
+            </div>
+          </Link>
+        );
+      })}
     </section>
+  );
+}
+
+function MarketPriceCell({ market }: { market: WatchlistMarketSnapshot | undefined }) {
+  const snapshot = market?.snapshot;
+  return (
+    <div className="text-sm leading-5">
+      <p className="font-semibold text-slate-950">{snapshot?.close ? formatDecimal(snapshot.close) : "暂无"}</p>
+      <p className={`text-xs font-semibold ${changeTone(snapshot?.pct_change ?? null)}`}>
+        {formatChange(snapshot?.pct_change ?? null)}
+      </p>
+    </div>
+  );
+}
+
+function MarketStatusCell({ market }: { market: WatchlistMarketSnapshot | undefined }) {
+  return (
+    <div className="text-xs leading-5 text-slate-600">
+      <StatusPill value={marketStatusLabel(market?.status)} tone={marketStatusPillTone(market?.status)} />
+      <p className="mt-1">
+        {market?.snapshot ? `${market.snapshot.source_code} / ${market.snapshot.trade_date}` : "暂无真实行情数据"}
+      </p>
+    </div>
   );
 }
 
@@ -978,6 +1026,74 @@ function statusTone(value: string): "slate" | "emerald" | "amber" | "rose" {
     return "rose";
   }
   return "slate";
+}
+
+function marketStatusLabel(value: string | undefined): string {
+  if (value === "available") {
+    return "行情可用";
+  }
+  if (value === "stale") {
+    return "数据过期";
+  }
+  if (value === "partial") {
+    return "部分缺失";
+  }
+  return "暂无真实行情";
+}
+
+function marketStatusPillTone(value: string | undefined): "slate" | "emerald" | "amber" | "rose" {
+  if (value === "available") {
+    return "emerald";
+  }
+  if (value === "stale" || value === "partial") {
+    return "amber";
+  }
+  return "slate";
+}
+
+function marketStatusTone(value: string | undefined): string {
+  if (value === "available") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+  if (value === "stale" || value === "partial") {
+    return "border-amber-200 bg-amber-50 text-amber-800";
+  }
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function formatDecimal(value: DecimalValue): string {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  return numberValue.toFixed(2);
+}
+
+function formatChange(value: DecimalValue | null): string {
+  if (value === null) {
+    return "暂无涨跌";
+  }
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  const direction = numberValue > 0 ? "上涨" : numberValue < 0 ? "下跌" : "持平";
+  const prefix = numberValue > 0 ? "+" : "";
+  return `${prefix}${numberValue.toFixed(2)}% ${direction}`;
+}
+
+function changeTone(value: DecimalValue | null): string {
+  if (value === null) {
+    return "text-slate-500";
+  }
+  const numberValue = Number(value);
+  if (numberValue > 0) {
+    return "text-red-600";
+  }
+  if (numberValue < 0) {
+    return "text-emerald-700";
+  }
+  return "text-slate-600";
 }
 
 function formatTime(value: string | null): string | null {

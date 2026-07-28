@@ -123,4 +123,5 @@
 - `/reviews/[reviewId]`：接入真实复盘详情、重新生成、程序聚合、AI 解释、来源追溯和历史版本。
 - `/notifications`：接入真实站内通知列表、未读数量、筛选、已读/未读、归档、批量已读和 deep_link 跳转。
 - `/settings/notifications`：站内通知偏好接真实 API；微信公众号区域继续保持 Mock 说明。
-- 继续 Mock 或未来边界：`/today`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心、微信公众号状态和微信消息预览；`/watchlist` 已接真实自选股 API，但不包含真实行情、K线、估值或技术指标。
+- 第七阶段 Checkpoint A 起，`/today`、`/watchlist`、`/watchlist/[stockId]` 和 `/settings/market-data` 接入真实行情状态 API 契约；无真实快照时显示 unavailable，不回退展示 Mock 行情。
+- 继续 Mock 或未来边界：`/market-review/[date]`、估值中心、微信公众号状态和微信消息预览；分时、K 线、指数、板块、财务和估值真实能力仍取决于后续 Provider、授权和口径确认。

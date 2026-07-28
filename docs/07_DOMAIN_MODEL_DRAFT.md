@@ -165,3 +165,20 @@
 - `VerificationItem`：待核实事项，来源于 AI 分析或用户后续处理。
 
 建模边界：AI 接口配置、AI 调用日志、信息内容版本和业务分析结果分别建模，不塞入 `UserSettings`；AI 调用日志不长期保存完整第三方正文、完整 Prompt、API Key 或隐藏推理。
+
+## 第七阶段 Checkpoint A 行情领域模型补充
+
+新增实体：
+
+- `MarketDataSource`：记录行情来源、授权状态、使用范围、生产启用状态、能力、健康状态、限制和更新时间。该实体不保存合同全文、Token 或完整 Provider 响应。
+- `MarketDataSyncRun`：记录一次行情同步运行，包含来源、触发方式、状态、请求交易日、解析交易日、请求股票数、接收/新增/更新/不变/失败数量、错误码、脱敏摘要、指标和开始/完成时间。
+- `StockDailySnapshot`：记录一只已存在股票在某个交易日、某个来源的日级快照，包含开高低收、前收、涨跌额、涨跌幅、成交量、成交额、换手率、量比、市值、PE/PB、是否交易、完整度、来源更新时间和获取时间。
+
+核心约束：
+
+- `stock_id + trade_date + source_code` 唯一。
+- 行情同步只能关联现有 `stocks`，不得创建股票。
+- 失败不清空历史快照。
+- 同一来源同一交易日同时最多一个 `running` 同步。
+- `TUSHARE_PRO` 默认未授权生产使用，`production_enabled=false`。
+- AI 不得生成、补全或覆盖 `StockDailySnapshot` 字段。

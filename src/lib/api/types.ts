@@ -345,6 +345,135 @@ export interface SecurityMasterStatus {
   latest_sync_run: SecurityMasterSyncRun | null;
 }
 
+export type DecimalValue = string | number;
+
+export interface MarketDataProvider {
+  source_code: string;
+  display_name: string;
+  implemented: boolean;
+  enabled_by_config: boolean;
+  source_type: string;
+  authorization_status: string;
+  usage_scope: string[];
+  production_enabled: boolean;
+  capabilities: string[];
+  limitations: string[];
+}
+
+export interface MarketDataSource {
+  id: UUID;
+  source_code: string;
+  display_name: string;
+  source_type: string;
+  authorization_status: string;
+  usage_scope: string[];
+  production_enabled: boolean;
+  capabilities: string[];
+  last_health_status: string;
+  last_health_checked_at: string | null;
+  limitations: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MarketDataSyncRun {
+  id: UUID;
+  source_code: string;
+  trigger_type: string;
+  sync_mode: string;
+  status: string;
+  requested_trade_date: string | null;
+  resolved_trade_date: string | null;
+  lookback_days: number;
+  requested_symbol_count: number;
+  received_count: number;
+  created_count: number;
+  updated_count: number;
+  unchanged_count: number;
+  failure_count: number;
+  error_code: string | null;
+  error_summary: string | null;
+  metrics: Record<string, unknown>;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MarketDataStatus {
+  sources: MarketDataSource[];
+  providers: MarketDataProvider[];
+  latest_trade_date: string | null;
+  latest_source_code: string | null;
+  latest_fetched_at: string | null;
+  latest_sync_status: string | null;
+  latest_sync_run: MarketDataSyncRun | null;
+  production_authorization_pending: boolean;
+  user_notice: string;
+  data_gaps: string[];
+}
+
+export interface StockDailySnapshot {
+  id: UUID;
+  stock_id: UUID;
+  source_code: string;
+  trade_date: string;
+  open: DecimalValue | null;
+  high: DecimalValue | null;
+  low: DecimalValue | null;
+  close: DecimalValue | null;
+  pre_close: DecimalValue | null;
+  change: DecimalValue | null;
+  pct_change: DecimalValue | null;
+  volume: DecimalValue | null;
+  amount: DecimalValue | null;
+  turnover_rate: DecimalValue | null;
+  volume_ratio: DecimalValue | null;
+  total_market_value: DecimalValue | null;
+  circulating_market_value: DecimalValue | null;
+  pe_ttm: DecimalValue | null;
+  pb: DecimalValue | null;
+  is_trading: boolean | null;
+  data_completeness: string;
+  source_updated_at: string | null;
+  fetched_at: string;
+  limitations: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type MarketSnapshotStatus = "available" | "stale" | "partial" | "unavailable";
+
+export interface StockMarketSnapshot {
+  stock: StockRead;
+  snapshot: StockDailySnapshot | null;
+  status: MarketSnapshotStatus;
+  latest_completed_trade_date: string | null;
+  source_code: string | null;
+  authorization_status: string | null;
+  production_enabled: boolean;
+  message: string;
+  unit_notes: Record<string, string>;
+}
+
+export interface WatchlistMarketSnapshot {
+  watchlist_item_id: UUID;
+  stock: StockRead;
+  snapshot: StockDailySnapshot | null;
+  status: MarketSnapshotStatus;
+  message: string;
+}
+
+export interface MarketDataSyncPayload {
+  source_code?: string;
+  sync_mode?: "latest_completed_trade_day" | "selected_trade_date" | "optional_backfill";
+  trade_date?: string | null;
+  lookback_days?: number;
+  stock_ids?: UUID[];
+  use_current_watchlist?: boolean;
+  dry_run?: boolean;
+}
+
 export interface ProviderSyncRun {
   id: UUID;
   external_source_id: UUID;

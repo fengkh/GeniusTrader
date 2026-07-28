@@ -64,6 +64,7 @@ htmlcov/
 
 # Logs
 logs/
+backups/
 *.log
 *.log.*
 

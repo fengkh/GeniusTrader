@@ -17,6 +17,7 @@ from app.repositories.watchlist import (
     list_tags,
 )
 from app.schemas.common import DataEnvelope, MessageResponse, Page
+from app.schemas.market_data import WatchlistMarketSnapshotOut
 from app.schemas.watchlist import (
     UserTagCreate,
     UserTagRead,
@@ -29,6 +30,7 @@ from app.schemas.watchlist import (
     WatchlistItemUpdate,
 )
 from app.services.audit import add_audit_log
+from app.services.market_data import get_watchlist_market_snapshots
 from app.services.watchlist import (
     archive_watchlist_item,
     attach_tags_to_items,
@@ -281,6 +283,14 @@ async def get_watchlist(
             total=total,
         )
     }
+
+
+@router.get("/market-snapshots", response_model=DataEnvelope[list[WatchlistMarketSnapshotOut]])
+async def get_watchlist_market_data_snapshots(
+    session: SessionDependency,
+    current_user: CurrentUser,
+) -> dict[str, list[WatchlistMarketSnapshotOut]]:
+    return {"data": await get_watchlist_market_snapshots(session, user_id=current_user.id)}
 
 
 @router.post("", response_model=DataEnvelope[WatchlistItemRead], status_code=201)

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.error_handlers import (
     app_error_handler,
@@ -22,6 +23,8 @@ app = FastAPI(title=settings.app_name)
 
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(CsrfProtectionMiddleware)
+if settings.trusted_host_list and "*" not in settings.trusted_host_list:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_host_list)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

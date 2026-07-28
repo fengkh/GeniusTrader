@@ -646,3 +646,9 @@ AI 不得：
 ## 2026-07-26 6A.1 前置收口状态
 
 证券目录前置闭环已形成本地可用目录：SH 来自 `SSE_SECURITY_MASTER`，BJ 来自 `BSE_SECURITY_MASTER` 官方新旧代码对照表，SZ 由非官方 `BAOSTOCK_DEVELOPMENT_FALLBACK` 在 development 环境补足。`SZSE_SECURITY_MASTER` 官方接口仍为 HTTP 500 / `network_error`，Provider 未冻结。公告真实 Smoke、真实候选、PDF、导入和 AI 闭环仍等待 `/watchlist` 真实页面人工验收后恢复，不得在本阶段继续扩大。
+
+## 2026-07-28 第七阶段 Checkpoint A 补充
+
+`BSE_DISCLOSURE` 进入公告 Provider catalog，当前只代表北交所官方公告候选来源骨架和标准化能力，不代表真实 Provider 端到端产品验收完成。真实候选列表、PDF 按需提取、候选导入、重复导入幂等、复盘 stale 和用户主动 AI 分析仍需在 Provider 可达后补验。
+
+行情 Provider 与公告 Provider 严格分离。缺少 Tushare Token 或行情授权不得阻塞公告模块启动，但也不得用公告数据补造行情、K 线、成交量、估值或量化指标。

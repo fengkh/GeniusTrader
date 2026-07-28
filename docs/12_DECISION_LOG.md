@@ -119,3 +119,13 @@
 - 决定：来源优先级为官方交易所目录、经验证的官方公开页面、BaoStock 开发补充、development_seed。低优先级来源只补缺和记录冲突，不覆盖高优先级字段。
 - 事实记录：2026-07-26 真实验证中 `SZSE_SECURITY_MASTER` 仍返回 HTTP 500 / `network_error`；深市本地产品验收由 `BAOSTOCK_DEVELOPMENT_FALLBACK` 使用 2026-07-24 最近交易日数据补足，但不代表深交所官方 Provider 可用。
 - 仍开放：正式证券主数据供应商、授权、更新频率、停牌/退市/改名生命周期和深交所官方目录口径。
+
+## 2026-07-28 第七阶段 Checkpoint A 决策
+
+| 编号 | 决策 | 原因 | 影响范围 | 状态 | 日期 | 复审时机 |
+| --- | --- | --- | --- | --- | --- | --- |
+| D-059 | 第七阶段拆为 Checkpoint A 离线工程实现和 Checkpoint B 真实 Provider 与授权验收 | 无真实 Tushare Token 时不应阻塞全部离线工程，同时避免把技术可达误写为生产授权 | 行情 Provider、API、前端、部署、文档 | 已确认 | 2026-07-28 | 用户提供真实凭证并启动联网 Smoke 前 |
+| D-060 | Tushare 当前仅为行情开发候选，默认 `authorization_status=unverified`、`production_enabled=false` | 普通个人 Token 不能推定为 GeniusTrader 公开上线的商业授权 | 数据源矩阵、迁移、Provider 注册、管理员页面 | 已确认 | 2026-07-28 | 取得书面商业授权后 |
+| D-061 | 前端真实行情页面不得回退展示 Mock 行情；无快照时显示 unavailable 和授权待确认状态 | 防止用户把模拟价格、涨跌或图表误认为真实行情 | `/today`、`/watchlist`、`/watchlist/[stockId]` | 已确认 | 2026-07-28 | 真实行情快照接入后 |
+| D-062 | 不引入 Celery、Kafka 或应用内常驻调度；自动任务由外部 Cron 调用 CLI | 控制 MVP 复杂度，同时保留生产可运维入口 | CLI、部署、运维文档 | 已确认 | 2026-07-28 | 私人测试规模扩大或调度需求增强后 |
+| D-063 | 生产部署模板默认关闭真实 Provider，并要求 HTTPS、secure cookie、CORS allowlist、Trusted Hosts 和私有密钥配置 | 降低公开仓库和上线前授权风险 | Docker、环境模板、安全要求 | 已确认 | 2026-07-28 | 生产域名和授权冻结前 |

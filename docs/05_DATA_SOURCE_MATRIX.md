@@ -115,3 +115,13 @@
 - 资讯策略：MVP 继续以用户粘贴链接和补充文本为主，不把普通财经资讯自动采集写入正式范围。
 - PDF 策略：PDF 可下载和可抽取文本不代表允许长期保存、全文解析、AI 摘要或再展示；完整 PDF 留存和正文再展示须经产品负责人确认。
 - 后续若进入正式 Provider Adapter 设计，应优先验证公告元数据、来源 ID、发布时间、证券关系、原始链接、文档 URL、哈希、去重键、增量游标、失败降级和授权边界。
+
+## 2026-07-28 第七阶段 Checkpoint A 行情数据源状态
+
+| 来源 | 阶段定位 | 当前状态 | 允许保存 | 不允许行为 | 待确认 |
+| --- | --- | --- | --- | --- | --- |
+| TUSHARE_PRO | 第一个行情技术候选 Provider | Adapter、迁移、服务、API 和测试骨架已完成；无真实 Token 时不联网；默认 `authorization_status=unverified`、`production_enabled=false` | 标准化后的日级行情快照、同步运行统计、来源健康状态、脱敏错误摘要 | 写成官方交易所行情、已获商业授权、可公开再分发、实时行情；保存 Token 或完整 Provider 响应 | 商业使用、登录用户展示、缓存、历史留存、再分发、SH/SZ/BJ 覆盖、单位复核 |
+| MOCK_MARKET_DATA | 自动测试和 development fixture | 仅用于自动测试和显式 development fixture；页面运行时不得回退显示 Mock 行情 | 测试库中的确定性样本 | 生产构建展示 Mock 价格、随机涨跌或虚假 K 线 | 无 |
+| BSE_DISCLOSURE | 北交所公告候选来源 | Provider 骨架和标准化已完成；真实候选、PDF、导入和 AI 闭环等待 Provider 可达后补验 | 公告元数据、来源链接、候选状态和脱敏同步统计 | 自动 AI、自动通知、创建虚假股票、保存完整响应或长期保存 PDF | 授权、稳定列表、PDF 策略、字段覆盖 |
+
+行情数据源和公告数据源严格分离。Tushare 当前只能作为 development candidate；即使后续真实网络 Smoke 成功，也不能自动关闭 `OQ-01` 或证明生产授权成立。

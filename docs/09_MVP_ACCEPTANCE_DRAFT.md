@@ -178,3 +178,13 @@
 - AC-59：公告和资讯样本必须保存来源、发布时间或缺失原因、采集时间、原始链接、哈希、去重键、字段完整度和 Provider 状态。失败示例：只保存标题和正文，无法追溯来源。
 - AC-60：PDF 探测必须说明是否可下载、是否为 PDF、页数、可抽取文本长度、大小限制和 OCR 需求，但不得因此默认允许长期保存或再展示完整 PDF。失败示例：把 PDF 全文直接作为 MVP 可长期保存数据。
 - AC-61：自动资讯采集不得进入 MVP 冻结范围；用户手动 URL 与补充文本仍是第一版信息中心主路径。失败示例：新增全站财经资讯爬虫或承诺全部新闻正文自动解析。
+
+## 第七阶段 Checkpoint A 验收项
+
+- AC-62：行情 Provider 授权模型必须区分 `authorization_status`、`usage_scope` 和 `production_enabled`；Tushare 默认未授权生产展示。失败示例：把普通个人 Token 写成生产授权。
+- AC-63：无真实行情 Token 时系统仍可启动、测试和构建；`sync_market_data` 返回明确 `MARKET_DATA_PROVIDER_NOT_CONFIGURED`，不等待、不联网、不写入部分行情。失败示例：缺 Token 导致第七阶段整体阻塞。
+- AC-64：行情同步只更新已存在 `stocks` 的日级快照，失败不清空历史数据，不创建虚假股票，不保存完整 Provider 响应或 Token。失败示例：根据行情返回自动插入未知股票。
+- AC-65：`/today`、`/watchlist`、`/watchlist/[stockId]` 和 `/settings/market-data` 接入真实行情状态契约；无快照时显示 unavailable，不回退 Mock 价格、随机涨跌或虚假 K 线。失败示例：页面显示看似真实的模拟行情。
+- AC-66：管理员行情同步 API 必须校验管理员身份和 CSRF；普通用户不能触发同步；当前用户自选股行情接口只返回当前用户自选股。失败示例：普通用户调用同步或跨用户看到自选股行情。
+- AC-67：BSE 公告 Provider 作为候选骨架完成，公告匹配只使用已有股票，不自动 AI、不自动通知、不保存完整响应。失败示例：BSE 公告同步创建虚假 BJ 股票或触发 AI 分析。
+- AC-68：生产部署模板默认 Provider 关闭、secure cookie、CORS allowlist、Trusted Hosts、数据库不暴露公网、敏感配置不进入 Git。失败示例：生产样例包含真实密码、Token 或开放任意来源。

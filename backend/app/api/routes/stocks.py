@@ -7,7 +7,9 @@ from app.api.dependencies import CurrentUser, SessionDependency
 from app.core.errors import AppError, ErrorCode
 from app.repositories.stocks import get_stock_by_id, list_stocks
 from app.schemas.common import DataEnvelope, Page
+from app.schemas.market_data import StockMarketSnapshotOut
 from app.schemas.stock import StockRead
+from app.services.market_data import get_stock_market_snapshot
 
 router = APIRouter()
 
@@ -75,6 +77,16 @@ async def search_stock_catalog(
             total=total,
         )
     }
+
+
+@router.get("/{stock_id}/market-snapshot", response_model=DataEnvelope[StockMarketSnapshotOut])
+async def get_stock_market_data_snapshot(
+    stock_id: UUID,
+    session: SessionDependency,
+    current_user: CurrentUser,
+) -> dict[str, StockMarketSnapshotOut]:
+    del current_user
+    return {"data": await get_stock_market_snapshot(session, stock_id=stock_id)}
 
 
 @router.get("/{stock_id}", response_model=DataEnvelope[StockRead])

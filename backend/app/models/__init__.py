@@ -19,6 +19,7 @@ from app.models.information import (
     InformationStockRelation,
     VerificationItem,
 )
+from app.models.market_data import MarketDataSource, MarketDataSyncRun, StockDailySnapshot
 from app.models.review_notification import (
     BusinessEvent,
     DailyReview,
@@ -55,6 +56,8 @@ __all__ = [
     "InformationItem",
     "InformationSource",
     "InformationStockRelation",
+    "MarketDataSource",
+    "MarketDataSyncRun",
     "Notification",
     "NotificationDelivery",
     "NotificationPreference",
@@ -63,6 +66,7 @@ __all__ = [
     "SecurityMasterSyncRun",
     "SecuritySourceRecord",
     "Stock",
+    "StockDailySnapshot",
     "User",
     "UserAnnouncementCandidate",
     "UserCredential",

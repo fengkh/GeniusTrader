@@ -24,12 +24,15 @@ LOCAL_DATABASE_ENV = REPO_ROOT / ".local" / "database.env"
 TRUNCATE_TABLES = [
     "audit_logs",
     "information_ingestion_links",
+    "stock_daily_snapshots",
+    "market_data_sync_runs",
     "security_source_records",
     "security_master_sync_runs",
     "user_announcement_candidates",
     "announcement_records",
     "provider_sync_states",
     "provider_sync_runs",
+    "market_data_sources",
     "notification_deliveries",
     "notifications",
     "notification_preferences",
@@ -83,7 +86,13 @@ os.environ["ANNOUNCEMENT_INGESTION_ENABLED"] = "false"
 os.environ["ANNOUNCEMENT_REAL_NETWORK_ENABLED"] = "false"
 os.environ["ANNOUNCEMENT_CNINFO_ENABLED"] = "false"
 os.environ["ANNOUNCEMENT_SSE_ENABLED"] = "false"
+os.environ["ANNOUNCEMENT_BSE_ENABLED"] = "false"
 os.environ["ANNOUNCEMENT_DOCUMENT_EXTRACTION_ENABLED"] = "false"
+os.environ["MARKET_DATA_SYNC_ENABLED"] = "false"
+os.environ["MARKET_DATA_REAL_NETWORK_ENABLED"] = "false"
+os.environ["MARKET_DATA_TUSHARE_ENABLED"] = "false"
+os.environ["MARKET_DATA_MOCK_ENABLED"] = "false"
+os.environ["MARKET_DATA_TUSHARE_TOKEN"] = ""
 os.environ["SECURITY_MASTER_SYNC_ENABLED"] = "false"
 os.environ["SECURITY_MASTER_REAL_NETWORK_ENABLED"] = "false"
 os.environ["SECURITY_MASTER_SSE_ENABLED"] = "false"
@@ -156,7 +165,7 @@ async def clean_test_database(migrated_test_database: None) -> AsyncGenerator[No
                 "UPDATE external_sources SET enabled=false, health_status='unknown', "
                 "authorization_status='review_required', redistribution_status='unclear', "
                 "commercial_use_status='unclear', legal_review_status='pending', updated_at=now() "
-                "WHERE source_code IN ('CNINFO', 'SSE_DISCLOSURE')"
+                "WHERE source_code IN ('CNINFO', 'SSE_DISCLOSURE', 'BSE_DISCLOSURE')"
             )
         )
         await session.commit()

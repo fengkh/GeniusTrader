@@ -3,75 +3,104 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
+  BarChart3,
   BookOpenText,
   ClipboardCheck,
   FileClock,
-  FilePenLine,
   Layers3,
   MessageSquare,
-  NotebookPen,
-  RotateCcw
+  NotebookPen
 } from "lucide-react";
 
-import { InfoTimeline } from "@/components/information/InfoTimeline";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { AbnormalEventCard } from "@/components/market/AbnormalEventCard";
-import { QuantOverview } from "@/components/market/QuantOverview";
-import { StockChartPanel } from "@/components/market/StockChartPanel";
-import { ReviewSummaryCard } from "@/components/review/ReviewSummaryCard";
 import { EmptyState } from "@/components/status/EmptyState";
-import { SimulatedDataBadge } from "@/components/status/SimulatedDataBadge";
-import { StatusTag } from "@/components/status/StatusTag";
-import { ValuationCenter } from "@/components/valuation/ValuationCenter";
-import {
-  formatNumber,
-  formatPercent,
-  observationStatusLabel,
-  observationStatusTone,
-  sourceKindLabel,
-  sourceKindTone,
-  tradeStatusLabel,
-  trendTone
-} from "@/lib/formatters";
-import { useMockState } from "@/lib/mock-state";
-import type { BoardTag, Stock } from "@/mock/types";
+import { ErrorState } from "@/components/status/ErrorState";
+import { LoadingSkeleton } from "@/components/status/LoadingSkeleton";
+import { humanizeApiError } from "@/lib/api/errors";
+import { getStockMarketSnapshot } from "@/lib/api/market-data";
+import type { DecimalValue, StockMarketSnapshot, WatchlistItemRead } from "@/lib/api/types";
+import { listWatchlistItems } from "@/lib/api/watchlist";
+
+const boardLabels: Record<string, string> = {
+  main_board: "主板",
+  star_board: "科创板",
+  chinext: "创业板",
+  bse: "北交所",
+  unknown: "未知板块"
+};
+
+const exchangeLabels: Record<string, string> = {
+  SH: "上交所",
+  SZ: "深交所",
+  BJ: "北交所"
+};
+
+const listingStatusLabels: Record<string, string> = {
+  pending_listing: "待上市",
+  active: "正常上市",
+  suspended: "停牌",
+  risk_warning: "风险警示",
+  delisting_period: "退市整理",
+  delisted: "已退市",
+  unknown: "状态未知"
+};
 
 export default function StockDetailPage() {
   const params = useParams<{ stockId: string }>();
-  const { data, findStock } = useMockState();
-  const stock = findStock(params.stockId);
+  const [market, setMarket] = useState<StockMarketSnapshot | null>(null);
+  const [watchlistItem, setWatchlistItem] = useState<WatchlistItemRead | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!stock) {
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [snapshot, watchlistPage] = await Promise.all([
+        getStockMarketSnapshot(params.stockId),
+        listWatchlistItems({ limit: 100 })
+      ]);
+      setMarket(snapshot);
+      setWatchlistItem(watchlistPage.items.find((item) => item.stock.id === snapshot.stock.id) ?? null);
+    } catch (caught) {
+      setError(humanizeApiError(caught));
+    } finally {
+      setLoading(false);
+    }
+  }, [params.stockId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadData();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadData]);
+
+  if (loading) {
+    return <LoadingSkeleton lines={10} />;
+  }
+
+  if (error || !market) {
     return (
       <div className="space-y-5">
-        <PageHeader title="个股详情" description="当前Mock场景没有找到对应股票。" />
-        <EmptyState
-          title="股票不存在或当前用户无自选股"
-          description="请返回自选股页选择一个可用的Mock股票。"
-          action={
-            <Link
-              href="/watchlist"
-              className="focus-ring inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white"
-            >
-              返回自选股
-            </Link>
-          }
-        />
+        <PageHeader title="个股详情" description="无法读取当前股票详情。" />
+        <ErrorState title="个股详情加载失败" description={error ?? "股票不存在或当前用户无权查看。"} />
       </div>
     );
   }
 
-  const observations =
-    data.observationsForToday.length >= 5 ? data.observationsForToday : stock.observations;
+  const stock = market.stock;
+  const snapshot = market.snapshot;
 
   return (
     <div className="space-y-5">
       <PageHeader
         eyebrow="个股详情"
-        title={`${stock.name} · ${stock.code}`}
-        description="顶部优先展示股票身份、价格表现、分时/日K和程序计算指标；AI复盘位于客观行情、异动与外部事实之后。"
+        title={`${stock.short_name || stock.name} · ${stock.symbol}`}
+        description="行情、K线、量化指标只展示后端已入库的真实数据；当前不会使用 Mock 图表或 AI 生成行情数字。"
         actions={
           <Link
             href="/watchlist"
@@ -86,229 +115,93 @@ export default function StockDetailPage() {
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-slate-500">1. 股票身份、状态与最新价格</p>
+            <p className="text-xs font-semibold text-slate-500">1. 股票身份、状态与最新价</p>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="text-2xl font-semibold text-slate-950">{stock.name}</h2>
-              <span className="text-sm text-slate-500">{stock.code}</span>
-              <span className="text-sm text-slate-500">{stock.market}</span>
+              <h2 className="text-2xl font-semibold text-slate-950">{stock.short_name || stock.name}</h2>
+              <span className="text-sm text-slate-500">{stock.symbol}</span>
+              <span className="text-sm text-slate-500">{exchangeLabel(stock.exchange)}</span>
+              <StatusPill value={listingStatusLabel(stock.listing_status)} tone={statusTone(stock.listing_status)} />
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <StatusTag status={stock.marketSnapshot.status} label={tradeStatusLabel(stock.tradeStatus)} />
-              <SimulatedDataBadge />
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-                数据时间 {stock.marketSnapshot.dataTime}
-              </span>
-            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              证券目录来源：{stock.source_code}；证券目录最近同步：
+              {formatTime(stock.last_synced_at) ?? "暂无"}。
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[520px]">
-            <IdentityStat label="最新价" value={formatNumber(stock.marketSnapshot.close)} />
-            <IdentityStat
-              label="涨跌幅"
-              value={changeText(stock)}
-              tone={trendTone(stock.marketSnapshot.changePercent)}
-            />
-            <IdentityStat label="成交额" value={stock.marketSnapshot.turnoverAmount ?? "暂无"} />
-            <IdentityStat
-              label="换手率"
-              value={
-                stock.marketSnapshot.turnoverRate === null
-                  ? "暂无"
-                  : `${stock.marketSnapshot.turnoverRate.toFixed(2)}%`
-              }
-            />
+            <IdentityStat label="最新价" value={snapshot?.close ? formatDecimal(snapshot.close) : "暂无"} />
+            <IdentityStat label="涨跌幅" value={formatChange(snapshot?.pct_change ?? null)} tone={changeTone(snapshot?.pct_change ?? null)} />
+            <IdentityStat label="成交额" value={snapshot?.amount ? formatLargeNumber(snapshot.amount) : "暂无"} />
+            <IdentityStat label="换手率" value={snapshot?.turnover_rate ? `${formatDecimal(snapshot.turnover_rate)}%` : "暂无"} />
           </div>
         </div>
-        {stock.marketSnapshot.statusMessage ? (
-          <p className="mt-4 rounded-md bg-amber-50 p-3 text-sm leading-6 text-amber-800">
-            {stock.marketSnapshot.statusMessage}
-          </p>
-        ) : null}
+        <div className={`mt-4 rounded-md border p-3 text-sm leading-6 ${marketStatusTone(market.status)}`}>
+          {market.message} 最近完整交易日：{market.latest_completed_trade_date ?? "暂无"}；来源：
+          {market.source_code ?? "暂无"}；授权状态：{market.authorization_status ?? "暂无"}。
+          {market.source_code === "TUSHARE_PRO" ? " 开发验证来源，尚未确认公开展示授权。" : ""}
+        </div>
       </section>
 
-      <StockChartPanel stock={stock} />
-
-      <QuantOverview metrics={stock.quantMetrics} />
-
-      <ValuationCenter stock={stock} />
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <SectionTitle icon={<BarChart3 className="h-5 w-5 text-blue-700" />} title="2. 分时 / 日K图表" />
+        <div className="mt-4">
+          <EmptyState
+            title="暂无真实历史走势数据"
+            description="当前只接入日级行情快照契约，分时、日K和成交量图必须等待真实历史行情能力确认后再展示。页面不会补造模拟走势。"
+          />
+        </div>
+      </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<Layers3 className="h-5 w-5 text-slate-700" />} title="5. 标准分类、系统建议和用户标签" />
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          分类信息位于行情图表之后；标准板块、动态题材和用户标签分开展示，不混为同一字段。
+        <SectionTitle icon={<BarChart3 className="h-5 w-5 text-slate-700" />} title="3. 量化概览" />
+        {snapshot ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric label="开盘 / 最高 / 最低" value={`${valueOrNone(snapshot.open)} / ${valueOrNone(snapshot.high)} / ${valueOrNone(snapshot.low)}`} />
+            <Metric label="昨收 / 收盘" value={`${valueOrNone(snapshot.pre_close)} / ${valueOrNone(snapshot.close)}`} />
+            <Metric label="成交量" value={snapshot.volume ? formatLargeNumber(snapshot.volume) : "暂无"} />
+            <Metric label="成交额" value={snapshot.amount ? formatLargeNumber(snapshot.amount) : "暂无"} />
+            <Metric label="总市值" value={snapshot.total_market_value ? formatLargeNumber(snapshot.total_market_value) : "暂无"} />
+            <Metric label="流通市值" value={snapshot.circulating_market_value ? formatLargeNumber(snapshot.circulating_market_value) : "暂无"} />
+            <Metric label="PE TTM" value={valueOrNone(snapshot.pe_ttm)} />
+            <Metric label="PB" value={valueOrNone(snapshot.pb)} />
+          </div>
+        ) : (
+          <div className="mt-4">
+            <EmptyState title="暂无真实行情数据" description="无真实快照时不展示程序计算指标，也不由 AI 生成数值。" />
+          </div>
+        )}
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          以上字段为程序保存的行情快照，不是 AI 结论。单位：价格为元/股，涨跌幅为百分数，成交量为股，成交额和市值为人民币元。
         </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <BoardTagGroup title="标准行业板块" tags={stock.standardIndustries} />
-          <BoardTagGroup title="标准概念板块" tags={stock.conceptBoards} />
-          <BoardTagGroup title="动态市场题材 / 系统建议" tags={stock.dynamicThemes} empty="暂无动态题材" />
-          <UserTagGroup stock={stock} />
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <SectionTitle icon={<Layers3 className="h-5 w-5 text-slate-700" />} title="4. 标准分类、系统建议和用户标签" />
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <TagPanel title="标准市场板块" values={[boardLabel(stock.board)]} />
+          <TagPanel title="系统建议" values={["待真实分类任务补全"]} muted />
+          <TagPanel title="用户标签" values={watchlistItem?.tags.map((tag) => tag.name) ?? []} />
         </div>
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<BookOpenText className="h-5 w-5 text-emerald-700" />} title="6. 用户关注逻辑摘要" />
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold text-slate-500">用户关注原因</p>
-            <p className="mt-2 text-sm leading-6 text-slate-800">{stock.focusReason}</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold text-slate-500">关注逻辑变化</p>
-            <p className="mt-2 text-sm leading-6 text-slate-800">{stock.focusLogicChange}</p>
-          </div>
-        </div>
+        <SectionTitle icon={<BookOpenText className="h-5 w-5 text-emerald-700" />} title="5. 用户关注逻辑摘要" />
+        <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+          {watchlistItem?.attention_reason || "当前用户尚未填写关注原因。"}
+        </p>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<ClipboardCheck className="h-5 w-5 text-rose-700" />} title="7. 当日交易异动" />
-        {stock.abnormalEvents.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState title="暂无当日交易异动" description="没有触发当前Mock规则版本的异动事件。" />
-          </div>
-        ) : (
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            {stock.abnormalEvents.map((event) => (
-              <AbnormalEventCard key={event.id} event={event} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<FileClock className="h-5 w-5 text-blue-700" />} title="8. 公告与资讯时间线" />
-        <div className="mt-4">
-          <InfoTimeline items={stock.infoTimeline} />
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<MessageSquare className="h-5 w-5 text-amber-700" />} title="9. 舆情内容和博主观点" />
-        {stock.sentimentItems.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState title="暂无舆情内容" description="用户录入链接或补充文本后会展示平台观点和待核实信息。" />
-          </div>
-        ) : (
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            {stock.sentimentItems.map((item) => (
-              <article key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={`rounded-md border px-2 py-1 text-xs font-medium ${sourceKindTone(
-                      item.sourceKind
-                    )}`}
-                  >
-                    {sourceKindLabel(item.sourceKind)}
-                  </span>
-                  <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700">
-                    {item.platform} · {item.author}
-                  </span>
-                </div>
-                <h3 className="mt-2 text-base font-semibold text-slate-950">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-700">{item.summary}</p>
-                <p className="mt-2 text-xs text-slate-500">
-                  {item.heatChange}；采集：{item.collectedAt}
-                </p>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<ClipboardCheck className="h-5 w-5 text-blue-700" />} title="10. 当日复盘" />
-        <div className="mt-4">
-          <ReviewSummaryCard review={stock.todayReview} />
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            className="focus-ring inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            type="button"
-          >
-            <RotateCcw className="h-4 w-4" />
-            重新生成
-          </button>
-          <button
-            className="focus-ring inline-flex h-9 items-center gap-2 rounded-md bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800"
-            type="button"
-          >
-            <FilePenLine className="h-4 w-4" />
-            人工编辑
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-slate-500">按钮仅展示流程入口，本轮不实现真实AI或保存。</p>
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<ClipboardCheck className="h-5 w-5 text-slate-700" />} title="11. 昨日观察条件及今日验证状态" />
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {observations.map((item) => (
-            <article key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-md border px-2 py-1 text-xs font-medium ${observationStatusTone(
-                    item.status
-                  )}`}
-                >
-                  {observationStatusLabel(item.status)}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {item.stockName ?? stock.name} · 来源复盘日 {item.reviewDate}
-                </span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-slate-800">{item.content}</p>
-              <p className="mt-2 text-xs leading-5 text-slate-600">验证依据：{item.evidence}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<FileClock className="h-5 w-5 text-slate-700" />} title="12. 历史复盘和修订版本摘要" />
-        {stock.reviewHistory.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState title="暂无历史复盘" description="生成或手写复盘后会保留AI原始版本与人工修订版本。" />
-          </div>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {stock.reviewHistory.map((version) => (
-              <article key={version.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700">
-                    {version.type === "ai-original" ? "AI原始版本" : "人工修订版本"}
-                  </span>
-                  <span className="text-xs text-slate-500">{version.date}</span>
-                </div>
-                <h3 className="mt-2 text-sm font-semibold text-slate-950">{version.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-700">{version.summary}</p>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<NotebookPen className="h-5 w-5 text-emerald-700" />} title="13. 用户笔记" />
-        <div className="mt-4 space-y-3">
-          {stock.userNotes.map((note) => (
-            <p
-              key={note}
-              className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900"
-            >
-              {note}
-            </p>
-          ))}
-        </div>
-      </section>
+      <PlaceholderSection title="6. 当日交易异动" icon={<ClipboardCheck className="h-5 w-5 text-rose-700" />} />
+      <PlaceholderSection title="7. 公告与资讯时间线" icon={<FileClock className="h-5 w-5 text-blue-700" />} />
+      <PlaceholderSection title="8. 舆情内容和博主观点" icon={<MessageSquare className="h-5 w-5 text-amber-700" />} />
+      <PlaceholderSection title="9. 当日复盘" icon={<ClipboardCheck className="h-5 w-5 text-blue-700" />} />
+      <PlaceholderSection title="10. 昨日观察条件及今日验证状态" icon={<ClipboardCheck className="h-5 w-5 text-slate-700" />} />
+      <PlaceholderSection title="11. 历史复盘和修订版本摘要" icon={<FileClock className="h-5 w-5 text-slate-700" />} />
+      <PlaceholderSection title="12. 用户笔记" icon={<NotebookPen className="h-5 w-5 text-emerald-700" />} />
     </div>
   );
 }
 
-function SectionTitle({
-  icon,
-  title
-}: {
-  icon: ReactNode;
-  title: string;
-}) {
+function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-2">
       {icon}
@@ -317,15 +210,18 @@ function SectionTitle({
   );
 }
 
-function IdentityStat({
-  label,
-  value,
-  tone = "text-slate-900"
-}: {
-  label: string;
-  value: string;
-  tone?: string;
-}) {
+function PlaceholderSection({ icon, title }: { icon: ReactNode; title: string }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <SectionTitle icon={icon} title={title} />
+      <div className="mt-4">
+        <EmptyState title="待真实数据闭环补全" description="当前页面仅展示已有真实证券目录和行情快照，不使用 Mock 内容填充该模块。" />
+      </div>
+    </section>
+  );
+}
+
+function IdentityStat({ label, value, tone = "text-slate-900" }: { label: string; value: string; tone?: string }) {
   return (
     <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
       <p className="text-[11px] font-semibold text-slate-500">{label}</p>
@@ -334,66 +230,149 @@ function IdentityStat({
   );
 }
 
-function BoardTagGroup({
-  title,
-  tags,
-  empty = "暂无"
-}: {
-  title: string;
-  tags: BoardTag[];
-  empty?: string;
-}) {
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function TagPanel({ title, values, muted = false }: { title: string; values: string[]; muted?: boolean }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <p className="text-xs font-semibold text-slate-500">{title}</p>
-      {tags.length === 0 ? (
-        <p className="mt-2 text-xs text-slate-500">{empty}</p>
-      ) : (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {tags.map((tag) => (
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {values.length ? (
+          values.map((value) => (
             <span
-              key={`${tag.type}-${tag.name}`}
-              title={`${tag.source}；更新：${tag.updatedAt}`}
-              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700"
+              key={value}
+              className={`rounded-md border px-2 py-1 text-xs font-medium ${
+                muted ? "border-slate-200 bg-white text-slate-500" : "border-slate-200 bg-white text-slate-700"
+              }`}
             >
-              {tag.name}
+              {value}
             </span>
-          ))}
-        </div>
-      )}
+          ))
+        ) : (
+          <span className="text-xs text-slate-500">暂无</span>
+        )}
+      </div>
     </div>
   );
 }
 
-function UserTagGroup({ stock }: { stock: Stock }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-semibold text-slate-500">用户标签</p>
-      {stock.userTags.length === 0 ? (
-        <p className="mt-2 text-xs text-slate-500">暂无用户标签</p>
-      ) : (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {stock.userTags.map((tag) => (
-            <span
-              key={tag.label}
-              className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800"
-            >
-              {tag.label}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function StatusPill({ value, tone }: { value: string; tone: "slate" | "emerald" | "amber" | "rose" }) {
+  const tones = {
+    slate: "border-slate-200 bg-slate-50 text-slate-700",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    amber: "border-amber-200 bg-amber-50 text-amber-800",
+    rose: "border-rose-200 bg-rose-50 text-rose-800"
+  };
+  return <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${tones[tone]}`}>{value}</span>;
 }
 
-function changeText(stock: Stock): string {
-  const value = stock.marketSnapshot.changePercent;
+function boardLabel(value: string): string {
+  return boardLabels[value] ?? value;
+}
 
+function exchangeLabel(value: string): string {
+  return exchangeLabels[value] ?? value;
+}
+
+function listingStatusLabel(value: string): string {
+  return listingStatusLabels[value] ?? value;
+}
+
+function statusTone(value: string): "slate" | "emerald" | "amber" | "rose" {
+  if (value === "active") {
+    return "emerald";
+  }
+  if (value === "suspended" || value === "risk_warning" || value === "pending_listing") {
+    return "amber";
+  }
+  if (value === "delisted" || value === "delisting_period") {
+    return "rose";
+  }
+  return "slate";
+}
+
+function marketStatusTone(value: string): string {
+  if (value === "available") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-900";
+  }
+  if (value === "partial" || value === "stale") {
+    return "border-amber-200 bg-amber-50 text-amber-900";
+  }
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function valueOrNone(value: DecimalValue | null): string {
+  return value === null ? "暂无" : formatDecimal(value);
+}
+
+function formatDecimal(value: DecimalValue): string {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  return numberValue.toFixed(2);
+}
+
+function formatChange(value: DecimalValue | null): string {
   if (value === null) {
     return "暂无涨跌";
   }
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  const direction = numberValue > 0 ? "上涨" : numberValue < 0 ? "下跌" : "持平";
+  const prefix = numberValue > 0 ? "+" : "";
+  return `${prefix}${numberValue.toFixed(2)}% ${direction}`;
+}
 
-  const word = value > 0 ? "上涨" : value < 0 ? "下跌" : "持平";
-  return `${formatPercent(value)} ${word}`;
+function changeTone(value: DecimalValue | null): string {
+  if (value === null) {
+    return "text-slate-500";
+  }
+  const numberValue = Number(value);
+  if (numberValue > 0) {
+    return "text-red-600";
+  }
+  if (numberValue < 0) {
+    return "text-emerald-700";
+  }
+  return "text-slate-600";
+}
+
+function formatLargeNumber(value: DecimalValue): string {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  if (Math.abs(numberValue) >= 100000000) {
+    return `${(numberValue / 100000000).toFixed(2)}亿`;
+  }
+  if (Math.abs(numberValue) >= 10000) {
+    return `${(numberValue / 10000).toFixed(2)}万`;
+  }
+  return numberValue.toFixed(2);
+}
+
+function formatTime(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  try {
+    return new Intl.DateTimeFormat("zh-CN", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }

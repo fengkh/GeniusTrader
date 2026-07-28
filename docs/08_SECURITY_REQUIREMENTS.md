@@ -137,3 +137,13 @@ GeniusTrader 当前 GitHub 仓库按公开仓库处理，所有文档、配置�
 - 当前真实通知通道仅 `in_app`；微信公众号、邮件、Web Push 和移动 Push 不得被前端或后端误调用。
 - `daily_digest` 当前只影响是否创建单条即时站内通知，不代表已实现定时摘要发送。
 - 自动测试必须 Mock AI，不得调用用户真实 Provider。
+
+## 第七阶段 Checkpoint A 安全补充
+
+- 行情 Provider Token 只能从本地未跟踪环境配置延迟读取，不得进入迁移、数据库、前端、日志、审计元数据、测试快照或文档。
+- Tushare 当前未完成商业授权确认，production 环境中未达到 `commercially_authorized` 时必须拒绝启用。
+- `MarketDataSource` 只保存授权状态、使用范围、能力和限制，不保存合同全文、Token 或完整 Provider 响应。
+- 行情同步 API 仅管理员可调用，必须通过 CSRF 校验；普通用户只能读取允许展示的非敏感快照。
+- 前端无真实行情时必须展示 unavailable，不得回退为 Mock 行情，避免用户误判。
+- 生产环境必须配置 HTTPS、secure cookie、CORS allowlist、Trusted Hosts 和 `APP_ENCRYPTION_KEYS`，数据库不得暴露公网。
+- 生产部署模板和备份脚本不得包含真实密码、API Key、Cookie、Session Token、CSRF Token 或 Provider Token。

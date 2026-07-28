@@ -9,6 +9,7 @@ REPO_ROOT = BACKEND_ROOT.parent
 LOCAL_DATABASE_ENV = REPO_ROOT / ".local" / "database.env"
 LOCAL_APP_ENV = REPO_ROOT / ".local" / "app.env"
 LOCAL_ANNOUNCEMENT_ENV = REPO_ROOT / ".local" / "announcement.env"
+LOCAL_MARKET_DATA_ENV = REPO_ROOT / ".local" / "market-data.env"
 BACKEND_ENV = BACKEND_ROOT / ".env"
 
 
@@ -30,6 +31,10 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = Field(
         default="http://127.0.0.1:3000,http://localhost:3000",
         validation_alias="CORS_ALLOWED_ORIGINS",
+    )
+    trusted_hosts: str = Field(
+        default="127.0.0.1,localhost,testserver",
+        validation_alias="TRUSTED_HOSTS",
     )
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
     app_encryption_keys: str = Field(default="", validation_alias="APP_ENCRYPTION_KEYS")
@@ -71,6 +76,10 @@ class Settings(BaseSettings):
     announcement_sse_enabled: bool = Field(
         default=False,
         validation_alias="ANNOUNCEMENT_SSE_ENABLED",
+    )
+    announcement_bse_enabled: bool = Field(
+        default=False,
+        validation_alias="ANNOUNCEMENT_BSE_ENABLED",
     )
     announcement_document_extraction_enabled: bool = Field(
         default=False,
@@ -148,9 +157,63 @@ class Settings(BaseSettings):
         default=5242880,
         validation_alias="SECURITY_MASTER_MAX_RESPONSE_BYTES",
     )
+    market_data_sync_enabled: bool = Field(
+        default=False,
+        validation_alias="MARKET_DATA_SYNC_ENABLED",
+    )
+    market_data_real_network_enabled: bool = Field(
+        default=False,
+        validation_alias="MARKET_DATA_REAL_NETWORK_ENABLED",
+    )
+    market_data_tushare_enabled: bool = Field(
+        default=False,
+        validation_alias="MARKET_DATA_TUSHARE_ENABLED",
+    )
+    market_data_mock_enabled: bool = Field(
+        default=False,
+        validation_alias="MARKET_DATA_MOCK_ENABLED",
+    )
+    market_data_tushare_token: str = Field(
+        default="",
+        validation_alias="MARKET_DATA_TUSHARE_TOKEN",
+    )
+    market_data_tushare_base_url: str = Field(
+        default="https://api.tushare.pro",
+        validation_alias="MARKET_DATA_TUSHARE_BASE_URL",
+    )
+    market_data_tushare_authorization_status: str = Field(
+        default="unverified",
+        validation_alias="MARKET_DATA_TUSHARE_AUTHORIZATION_STATUS",
+    )
+    market_data_request_timeout_seconds: int = Field(
+        default=15,
+        validation_alias="MARKET_DATA_REQUEST_TIMEOUT_SECONDS",
+    )
+    market_data_max_symbols_per_run: int = Field(
+        default=200,
+        validation_alias="MARKET_DATA_MAX_SYMBOLS_PER_RUN",
+    )
+    market_data_backfill_max_days: int = Field(
+        default=30,
+        validation_alias="MARKET_DATA_BACKFILL_MAX_DAYS",
+    )
+    market_data_market_close_hour: int = Field(
+        default=15,
+        validation_alias="MARKET_DATA_MARKET_CLOSE_HOUR",
+    )
+    market_data_market_close_minute: int = Field(
+        default=30,
+        validation_alias="MARKET_DATA_MARKET_CLOSE_MINUTE",
+    )
 
     model_config = SettingsConfigDict(
-        env_file=(LOCAL_DATABASE_ENV, LOCAL_APP_ENV, LOCAL_ANNOUNCEMENT_ENV, BACKEND_ENV),
+        env_file=(
+            LOCAL_DATABASE_ENV,
+            LOCAL_APP_ENV,
+            LOCAL_ANNOUNCEMENT_ENV,
+            LOCAL_MARKET_DATA_ENV,
+            BACKEND_ENV,
+        ),
         env_file_encoding="utf-8-sig",
         case_sensitive=False,
         extra="ignore",
@@ -160,6 +223,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def trusted_host_list(self) -> list[str]:
+        return [host.strip() for host in self.trusted_hosts.split(",") if host.strip()]
 
     @property
     def encryption_keys(self) -> list[str]:

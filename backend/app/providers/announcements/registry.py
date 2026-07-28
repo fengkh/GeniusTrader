@@ -1,11 +1,13 @@
 from app.core.config import Settings
 from app.providers.announcements.base import AnnouncementProvider
+from app.providers.announcements.bse import BseAnnouncementProvider
 from app.providers.announcements.cninfo import CninfoAnnouncementProvider
 from app.providers.announcements.sse import SseAnnouncementProvider
 
 IMPLEMENTED_ANNOUNCEMENT_PROVIDERS: dict[str, type[AnnouncementProvider]] = {
     "CNINFO": CninfoAnnouncementProvider,
     "SSE_DISCLOSURE": SseAnnouncementProvider,
+    "BSE_DISCLOSURE": BseAnnouncementProvider,
 }
 
 
@@ -14,6 +16,8 @@ def is_provider_enabled(source_code: str, settings: Settings) -> bool:
         return settings.announcement_cninfo_enabled
     if source_code == "SSE_DISCLOSURE":
         return settings.announcement_sse_enabled
+    if source_code == "BSE_DISCLOSURE":
+        return settings.announcement_bse_enabled
     return False
 
 
@@ -65,11 +69,12 @@ def provider_catalog(settings: Settings) -> list[dict[str, object]]:
         {
             "source_code": "BSE_DISCLOSURE",
             "provider_adapter": "bse",
-            "implemented": False,
-            "enabled_by_config": False,
-            "experimental": False,
-            "capabilities": [],
-            "limitations": ["本阶段证据不足，未实现真实网络 Adapter。"],
+            "implemented": True,
+            "enabled_by_config": settings.announcement_bse_enabled,
+            "experimental": True,
+            "experimental_limited": True,
+            "capabilities": ["announcement_list", "announcement_pdf"],
+            "limitations": ["北交所官方公告候选；真实网络可达性、字段稳定性和使用授权仍待补验。"],
             "limits": run_limits,
         },
     ]

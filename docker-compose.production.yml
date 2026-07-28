@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?required}
+      POSTGRES_USER: ${POSTGRES_USER:?required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      APP_ENCRYPTION_KEYS: ${APP_ENCRYPTION_KEYS:?required}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SESSION_COOKIE_SECURE: "true"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?required}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:?required}
+      ANNOUNCEMENT_INGESTION_ENABLED: "false"
+      ANNOUNCEMENT_REAL_NETWORK_ENABLED: "false"
+      MARKET_DATA_SYNC_ENABLED: "false"
+      MARKET_DATA_REAL_NETWORK_ENABLED: "false"
+      MARKET_DATA_TUSHARE_ENABLED: "false"
+      MARKET_DATA_TUSHARE_AUTHORIZATION_STATUS: unverified
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?required}
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  postgres_data:
