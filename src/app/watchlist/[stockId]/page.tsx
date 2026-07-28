@@ -100,7 +100,7 @@ export default function StockDetailPage() {
       <PageHeader
         eyebrow="个股详情"
         title={`${stock.short_name || stock.name} · ${stock.symbol}`}
-        description="行情、K线、量化指标只展示后端已入库的真实数据；当前不会使用 Mock 图表或 AI 生成行情数字。"
+        description="行情、K线、量化指标只展示后端已入库且经授权可展示的数据；当前不会使用虚构图表或 AI 生成行情数字。"
         actions={
           <Link
             href="/watchlist"
@@ -166,7 +166,7 @@ export default function StockDetailPage() {
           </div>
         ) : (
           <div className="mt-4">
-            <EmptyState title="暂无真实行情数据" description="无真实快照时不展示程序计算指标，也不由 AI 生成数值。" />
+            <EmptyState title="暂无经授权的真实行情数据。" description="无真实快照时不展示程序计算指标，也不由 AI 生成数值。" />
           </div>
         )}
         <p className="mt-3 text-xs leading-5 text-slate-500">
@@ -215,7 +215,7 @@ function PlaceholderSection({ icon, title }: { icon: ReactNode; title: string })
     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <SectionTitle icon={icon} title={title} />
       <div className="mt-4">
-        <EmptyState title="待真实数据闭环补全" description="当前页面仅展示已有真实证券目录和行情快照，不使用 Mock 内容填充该模块。" />
+        <EmptyState title="待真实数据闭环补全" description="当前页面仅展示已有真实证券目录和行情快照，不使用模拟内容填充该模块。" />
       </div>
     </section>
   );

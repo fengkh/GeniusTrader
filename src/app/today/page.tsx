@@ -99,7 +99,7 @@ export default function TodayPage() {
             <p className="text-xs font-semibold text-slate-500">1. 数据日期、来源状态和最后更新时间</p>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <MetricCard label="最近完整交易日" value={status?.latest_trade_date ?? "暂无"} />
-              <MetricCard label="行情来源" value={status?.latest_source_code ?? "暂无真实行情"} />
+              <MetricCard label="行情来源" value={status?.latest_source_code ?? "暂无经授权的真实行情数据"} />
               <MetricCard label="最后更新时间" value={formatTime(status?.latest_fetched_at ?? null) ?? "暂无"} />
             </div>
             <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
@@ -141,7 +141,7 @@ export default function TodayPage() {
             index="3"
             icon={<AlertCircle className="h-5 w-5 text-rose-700" />}
             title="今日重大异动"
-            description="真实异动规则需要真实行情快照和历史样本验证；当前不会用 Mock 异动填充。"
+            description="真实异动规则需要真实行情快照和历史样本验证；当前不会用虚构异动填充。"
           />
           <PlaceholderSection
             index="4"
@@ -171,7 +171,7 @@ export default function TodayPage() {
             index="8"
             icon={<ClipboardList className="h-5 w-5 text-slate-700" />}
             title="待处理舆情和未完成复盘"
-            description="待处理任务需要真实业务事件聚合后显示；当前不使用 Mock 任务数量。"
+            description="待处理任务需要真实业务事件聚合后显示；当前不使用模拟任务数量。"
           />
         </>
       ) : null}

@@ -15,14 +15,18 @@ from app.core.config import get_settings
 from app.core.csrf import CsrfProtectionMiddleware
 from app.core.errors import AppError
 from app.core.logging import RequestLoggingMiddleware, setup_logging
+from app.core.release_gate import validate_production_startup_settings
+from app.core.security_headers import SecurityHeadersMiddleware
 
 settings = get_settings()
+validate_production_startup_settings(settings)
 setup_logging(settings.log_level)
 
 app = FastAPI(title=settings.app_name)
 
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(CsrfProtectionMiddleware)
+app.add_middleware(SecurityHeadersMiddleware, hsts_enabled=settings.is_production)
 if settings.trusted_host_list and "*" not in settings.trusted_host_list:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_host_list)
 app.add_middleware(

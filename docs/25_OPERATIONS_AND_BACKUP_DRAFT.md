@@ -12,8 +12,12 @@
 - `python -m app.cli.sync_market_data`
 - `python -m app.cli.sync_announcements`
 - `python -m app.cli.cleanup_operational_data`
+- `python -m app.cli.release_check`
+- `python -m app.cli.market_data_provider_smoke`
 
 CLI 必须支持明确退出码、结构化摘要日志、`job_run_id` 或对应运行记录 ID、错误码和脱敏输出。没有真实行情 Token 时，`sync_market_data` 应返回非零退出码和 `MARKET_DATA_PROVIDER_NOT_CONFIGURED`，不得产生部分行情、不得破坏历史数据。
+
+`market_data_provider_smoke` 默认不写数据库，最多请求 2 只股票和 1 个交易日。无 Token 时退出码为 3；输出不得包含 Token。即使技术可达，也必须继续显示“技术可达不代表生产授权”。
 
 ## 二、任务边界
 
@@ -29,6 +33,8 @@ CLI 必须支持明确退出码、结构化摘要日志、`job_run_id` 或对应
 
 备份文件应只保存在受控服务器目录，访问权限应限制为运维账号。备份日志不得输出数据库密码。
 
+备份演练报告至少记录备份文件名、文件大小、SHA256、源库名、恢复临时库名、执行时间和操作者。报告可以保存为脱敏文本；备份文件本身不得进入 Git。
+
 ## 四、恢复演练
 
 `scripts/restore_postgres.sh` 应恢复到独立临时数据库，不得直接破坏开发主库或生产主库。`scripts/verify_restore.sh` 用于核对核心表计数和 Alembic 版本。
@@ -39,12 +45,13 @@ CLI 必须支持明确退出码、结构化摘要日志、`job_run_id` 或对应
 2. 创建独立恢复库。
 3. 恢复备份。
 4. 执行 `alembic current` 或等价版本检查。
-5. 核对核心表数量。
+5. 核对核心表数量：`users`、`stocks`、`user_watchlist_items`、`announcement_records`、`information_items`、`daily_reviews`、`ai_tasks`、`stock_daily_snapshots`。若行情功能关闭，`stock_daily_snapshots=0` 可接受。
 6. 删除临时恢复库。
+
+恢复验证必须使用独立临时数据库，不得对真实生产库直接执行破坏性恢复。恢复后抽样检查证券主数据、自选股、公告记录、信息条目、复盘版本和 AI task 元数据；不得输出完整私人正文、API Key、Cookie、Token、数据库密码或 `APP_ENCRYPTION_KEYS`。
 
 ## 五、清理策略
 
 `cleanup_operational_data` 默认 dry-run。正式执行必须显式传入执行参数，并只清理审计、安全目录同步运行、行情同步运行等运营记录，不删除业务主体数据、历史复盘、用户笔记、公告候选、行情历史快照或用户自选股。
 
 具体保留期限仍需产品负责人和数据治理确认。
-

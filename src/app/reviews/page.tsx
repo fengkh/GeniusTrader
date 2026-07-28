@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, CalendarDays, FileClock, Plus, RefreshCw } from "lucide-react";
+import { AlertTriangle, CalendarDays, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -143,15 +143,6 @@ export default function ReviewsPage() {
         eyebrow="真实API"
         title="我的每日复盘"
         description="当前复盘仅聚合用户保存和分析的信息，不代表全市场行情复盘。"
-        actions={
-          <Link
-            href={`/market-review/${todayInputValue()}`}
-            className="focus-ring inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <FileClock className="h-4 w-4" />
-            全市场复盘Mock
-          </Link>
-        }
       />
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

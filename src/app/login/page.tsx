@@ -141,7 +141,7 @@ export default function LoginPage() {
                 href="/today"
                 className="focus-ring flex h-11 w-full items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-800 hover:bg-blue-100"
               >
-                进入Mock演示
+                进入今日页
               </Link>
             </form>
             <p className="mt-5 rounded-md bg-slate-50 p-3 text-xs leading-5 text-slate-600">

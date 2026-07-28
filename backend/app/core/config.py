@@ -15,6 +15,7 @@ BACKEND_ENV = BACKEND_ROOT / ".env"
 
 class Settings(BaseSettings):
     app_env: str = Field(default="development", validation_alias="APP_ENV")
+    debug: bool = Field(default=False, validation_alias="DEBUG")
     app_name: str = Field(default="GeniusTrader API", validation_alias="APP_NAME")
     app_timezone: str = Field(default="Asia/Shanghai", validation_alias="APP_TIMEZONE")
     database_url: str = Field(min_length=1, validation_alias="DATABASE_URL")
@@ -35,6 +36,14 @@ class Settings(BaseSettings):
     trusted_hosts: str = Field(
         default="127.0.0.1,localhost,testserver",
         validation_alias="TRUSTED_HOSTS",
+    )
+    public_registration_enabled: bool = Field(
+        default=False,
+        validation_alias="PUBLIC_REGISTRATION_ENABLED",
+    )
+    admin_bootstrap_password: str = Field(
+        default="",
+        validation_alias="ADMIN_BOOTSTRAP_PASSWORD",
     )
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
     app_encryption_keys: str = Field(default="", validation_alias="APP_ENCRYPTION_KEYS")
@@ -160,6 +169,10 @@ class Settings(BaseSettings):
     market_data_sync_enabled: bool = Field(
         default=False,
         validation_alias="MARKET_DATA_SYNC_ENABLED",
+    )
+    market_data_provider_enabled: bool = Field(
+        default=False,
+        validation_alias="MARKET_DATA_PROVIDER_ENABLED",
     )
     market_data_real_network_enabled: bool = Field(
         default=False,

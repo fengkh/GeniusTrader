@@ -18,8 +18,12 @@ with engine.connect() as connection:
     counts = {
         "users": connection.execute(text("select count(*) from users")).scalar_one(),
         "stocks": connection.execute(text("select count(*) from stocks")).scalar_one(),
-        "watchlist": connection.execute(text("select count(*) from user_watchlist_items")).scalar_one(),
-        "snapshots": connection.execute(text("select count(*) from stock_daily_snapshots")).scalar_one(),
+        "watchlist_items": connection.execute(text("select count(*) from user_watchlist_items")).scalar_one(),
+        "announcement_records": connection.execute(text("select count(*) from announcement_records")).scalar_one(),
+        "information_items": connection.execute(text("select count(*) from information_items")).scalar_one(),
+        "user_daily_reviews": connection.execute(text("select count(*) from daily_reviews")).scalar_one(),
+        "ai_tasks": connection.execute(text("select count(*) from ai_tasks")).scalar_one(),
+        "stock_daily_snapshots": connection.execute(text("select count(*) from stock_daily_snapshots")).scalar_one(),
     }
 print(counts)
 engine.dispose()

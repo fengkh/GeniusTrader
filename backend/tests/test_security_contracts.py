@@ -22,6 +22,17 @@ async def test_cors_allows_configured_local_origin_without_wildcard(client):
 
 
 @pytest.mark.asyncio
+async def test_security_headers_present(client):
+    response = await client.get("/api/v1/health/live")
+
+    assert response.status_code == 200
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "strict-origin" in response.headers["referrer-policy"]
+    assert "camera=()" in response.headers["permissions-policy"]
+
+
+@pytest.mark.asyncio
 async def test_audit_log_does_not_store_sensitive_password(client, db_session):
     admin = await create_user(db_session, username=unique_username("admin"), password="AdminPass123", role="admin")
     await login(client, username=admin.username, password="AdminPass123")
@@ -49,6 +60,15 @@ def test_env_example_has_no_real_local_credentials():
 def test_local_database_env_is_git_ignored():
     result = subprocess.run(
         ["git", "check-ignore", "-q", ".local/database.env"],
+        cwd=BACKEND_ROOT.parent,
+        check=False,
+    )
+    assert result.returncode == 0
+
+
+def test_backup_directory_is_git_ignored():
+    result = subprocess.run(
+        ["git", "check-ignore", "-q", "backups/geniustrader-test.dump"],
         cwd=BACKEND_ROOT.parent,
         check=False,
     )

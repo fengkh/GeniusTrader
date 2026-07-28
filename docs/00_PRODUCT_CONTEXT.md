@@ -123,8 +123,10 @@ AI 不得直接宣称某条内容“真实”或“虚假”，也不应给出�
 - 当前已实现真实 API 的页面包括 `/login`、`/information`、`/information/[itemId]`、`/settings/ai`、`/reviews`、`/reviews/[reviewId]`、`/notifications` 和 `/settings/notifications` 的站内通知部分。
 - 用户每日复盘当前只聚合用户保存并分析的信息，不代表全市场行情复盘。
 - 站内通知当前只真实支持 `in_app`；微信公众号、邮件、Web Push、移动 Push 和短信仍未接入。
-- 6A 起 `/watchlist` 自选股管理接真实 API；`/today`、`/watchlist/[stockId]`、`/market-review/[date]`、估值中心、微信公众号状态和微信消息预览继续保持 Mock 或未来边界。
-- 证券基本信息来自证券目录同步；行情、财务、估值和技术指标仍未接入真实数据。
+- 6A 起 `/watchlist` 自选股管理接真实 API；第七阶段 Checkpoint A 起 `/today`、`/watchlist`、`/watchlist/[stockId]` 和 `/settings/market-data` 接入真实行情状态契约。
+- 生产发布默认关闭未获授权真实行情和 Mock 行情；无授权行情时页面显示“暂无经授权的真实行情数据。”，不得展示模拟价格、K 线、分时或 AI 生成行情数字。
+- 第七阶段 Production Release Gate 起，早期融合原型中的 `/market-review/[date]` 不再展示 Mock 全市场复盘、指数宽度、估值区间或模拟行情数字；该路由仅保留安全关闭说明，等待真实数据源、授权和验收口径确认后再评估开放。
+- 证券基本信息来自证券目录同步；财务、估值、全市场宽度和正式行情 Provider 授权仍未冻结。
 
 产品字段应优先使用“信息质量”“证据状态”“核验状态”“待核实事项”等表述，而不是武断真假判断。
 

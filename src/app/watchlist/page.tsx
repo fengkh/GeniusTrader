@@ -215,7 +215,7 @@ export default function WatchlistPage() {
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
           <p>
             证券基本信息来自证券目录同步；行情区域仅显示后端已入库的真实日级快照。暂无快照时显示空状态；
-            页面不会使用 Mock 价格、K线或分时图，也不会基于股票代码临时创建不存在的股票。
+            页面不会使用虚构价格、K线或分时图，也不会基于股票代码临时创建不存在的股票。
           </p>
         </div>
       </section>
@@ -288,7 +288,7 @@ export default function WatchlistPage() {
               </button>
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              当前显示 {filteredItems.length} / {items.length} 只；行情为空时明确显示“暂无真实行情数据”。
+              当前显示 {filteredItems.length} / {items.length} 只；行情为空时明确显示“暂无经授权的真实行情数据。”。
             </p>
           </section>
 
@@ -471,7 +471,7 @@ function MobileWatchlistList({
                 {item.tags.length ? item.tags.slice(0, 2).map((tag) => tag.name).join("；") : "无标签"}
                 {item.tags.length > 2 ? ` +${item.tags.length - 2}` : ""}
               </p>
-              <p className="mt-1 truncate text-[11px] text-slate-500">{market?.message ?? "暂无真实行情数据"}</p>
+              <p className="mt-1 truncate text-[11px] text-slate-500">{market?.message ?? "暂无经授权的真实行情数据。"}</p>
             </div>
             <div className="flex min-w-0 flex-col items-end justify-between">
               <div className="text-right">
@@ -508,7 +508,7 @@ function MarketStatusCell({ market }: { market: WatchlistMarketSnapshot | undefi
     <div className="text-xs leading-5 text-slate-600">
       <StatusPill value={marketStatusLabel(market?.status)} tone={marketStatusPillTone(market?.status)} />
       <p className="mt-1">
-        {market?.snapshot ? `${market.snapshot.source_code} / ${market.snapshot.trade_date}` : "暂无真实行情数据"}
+        {market?.snapshot ? `${market.snapshot.source_code} / ${market.snapshot.trade_date}` : "暂无经授权的真实行情数据。"}
       </p>
     </div>
   );
@@ -1038,7 +1038,7 @@ function marketStatusLabel(value: string | undefined): string {
   if (value === "partial") {
     return "部分缺失";
   }
-  return "暂无真实行情";
+  return "暂无授权行情";
 }
 
 function marketStatusPillTone(value: string | undefined): "slate" | "emerald" | "amber" | "rose" {

@@ -6,7 +6,6 @@ import type { ReactNode } from "react";
 import { DesktopNav } from "@/components/navigation/DesktopNav";
 import { MobileNav } from "@/components/navigation/MobileNav";
 import { TopBar } from "@/components/layout/TopBar";
-import { MOCK_DISCLOSURE } from "@/lib/constants";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -26,7 +25,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
         <MobileNav />
       </div>
-      <div className="sr-only">{MOCK_DISCLOSURE}</div>
     </div>
   );
 }

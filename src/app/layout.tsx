@@ -9,7 +9,7 @@ import { MockStateProvider } from "@/lib/mock-state";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: `${APP_NAME} Mock 原型`,
+  title: `${APP_NAME} 私人测试版`,
   description: MOCK_DISCLOSURE
 };
 

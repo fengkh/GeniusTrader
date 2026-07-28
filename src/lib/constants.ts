@@ -5,7 +5,7 @@ import type { NavigationItem, ScenarioOption } from "@/mock/types";
 export const APP_NAME = "GeniusTrader";
 
 export const MOCK_DISCLOSURE =
-  "当前为 Mock 原型，所有行情、资讯、舆情与 AI 内容均为模拟数据，不代表实时行情或投资建议。";
+  "私人测试版；未获授权的真实行情功能默认关闭，页面不会使用模拟价格替代真实行情。";
 
 export const DESKTOP_NAV_ITEMS: NavigationItem[] = [
   { href: "/today", label: "今日", icon: Home },

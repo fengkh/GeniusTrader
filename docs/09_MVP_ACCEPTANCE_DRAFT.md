@@ -188,3 +188,9 @@
 - AC-66：管理员行情同步 API 必须校验管理员身份和 CSRF；普通用户不能触发同步；当前用户自选股行情接口只返回当前用户自选股。失败示例：普通用户调用同步或跨用户看到自选股行情。
 - AC-67：BSE 公告 Provider 作为候选骨架完成，公告匹配只使用已有股票，不自动 AI、不自动通知、不保存完整响应。失败示例：BSE 公告同步创建虚假 BJ 股票或触发 AI 分析。
 - AC-68：生产部署模板默认 Provider 关闭、secure cookie、CORS allowlist、Trusted Hosts、数据库不暴露公网、敏感配置不进入 Git。失败示例：生产样例包含真实密码、Token 或开放任意来源。
+- AC-69：生产发布门禁必须拒绝 `DEBUG=true`、缺少或占位 `APP_ENCRYPTION_KEYS`、不安全 Cookie、通配 CORS/Trusted Hosts、localhost 数据库、示例数据库密码、公开注册开启、BaoStock development fallback 生产启用、BSE_DISCLOSURE 启用、Mock 行情启用和未授权行情 Provider 启用。失败示例：生产环境带通配 CORS 或未授权行情网络仍能启动。
+- AC-70：无经授权真实行情时，`/today`、`/watchlist`、`/watchlist/[stockId]` 和 `/settings/market-data` 必须显示“暂无经授权的真实行情数据。”或等价 unavailable 状态，不展示 0 元、0%、随机图表、模拟 K 线或“实时”行情承诺。失败示例：无快照时用 0% 填充涨跌幅。
+- AC-71：`python -m app.cli.release_check` 必须输出 pass/warning/fail，不打印密钥；退出码 0 表示可部署，1 表示存在阻断项，2 表示只有警告。失败示例：检查日志输出完整数据库密码或 APP_ENCRYPTION_KEYS。
+- AC-72：`python -m app.cli.market_data_provider_smoke` 缺少 Token 时退出码为 3，默认不写库；技术可达不代表生产授权。失败示例：无授权 Token 时仍持久化生产行情。
+- AC-73：生产 Smoke 脚本不得通过命令行接收密码或 Token，必须检查首页、健康检查、OpenAPI、登录页、公众注册关闭、未认证私有 API 拒绝、行情/证券状态不泄密、错误响应无栈信息和基础安全响应头。失败示例：Smoke 通过 CLI 参数传入管理员密码。
+- AC-74：`/market-review/[date]` 在生产发布收口中必须保持安全关闭，不展示 Mock 全市场复盘、指数宽度、估值区间、随机行情或 AI 生成行情数字；`/reviews` 不得提供跳转到旧 Mock 全市场复盘的入口。失败示例：私人测试版用户手输 URL 后看到模拟市场涨跌和估值区间。

@@ -18,7 +18,7 @@ See `docs/21_EXTERNAL_SOURCES_AND_ANNOUNCEMENT_INGESTION_DRAFT.md` for the detai
 
 GeniusTrader 是一套面向 A 股个人研究场景的自选股复盘与多源舆情管理平台。第一版聚焦“A 股自选股复盘闭环”，帮助用户管理自选股、追踪行情与公告资讯、整理舆情线索，并使用用户自带的 AI API 生成可追溯的每日复盘。
 
-当前仓库已进入分阶段实现：Mock 前端原型、FastAPI 后端基础工程、受控信息采集与 AI Gateway、信息中心前端真实 API 联调、用户私有信息每日复盘、BusinessEvent、站内通知和 `/watchlist` 真实自选股管理已建立；当前阶段正在收口“6A：A 股证券主数据与真实自选股闭环”。`/watchlist` 只接入证券基本信息和用户自选股数据，行情、财务、估值和技术指标仍未接入真实数据。
+当前仓库已进入第七阶段发布收口：Mock 前端原型、FastAPI 后端基础工程、受控信息采集与 AI Gateway、信息中心前端真实 API 联调、用户私有信息每日复盘、BusinessEvent、站内通知、公告候选收件箱和 `/watchlist` 真实自选股管理已建立。生产发布默认关闭未获授权真实行情和 Mock 行情；无授权行情时页面显示“暂无经授权的真实行情数据。”，不展示模拟价格、K 线、分时或 AI 生成行情数字。
 
 ## 明确边界
 
@@ -51,10 +51,15 @@ GeniusTrader 是一套面向 A 股个人研究场景的自选股复盘与多源�
 - `docs/20_INFORMATION_PROVIDER_FEASIBILITY_DRAFT.md`：官方公告与财经资讯数据源可行性 Spike 草案。
 - `docs/21_EXTERNAL_SOURCES_AND_ANNOUNCEMENT_INGESTION_DRAFT.md`：外部来源与公告候选收件箱试点草案。
 - `docs/22_SECURITY_MASTER_AND_REAL_WATCHLIST_DRAFT.md`：A 股证券主数据与真实自选股闭环草案。
+- `docs/23_REAL_MARKET_DATA_AND_LAUNCH_MVP_DRAFT.md`：真实行情候选与可上线 MVP 草案。
+- `docs/24_PRODUCTION_DEPLOYMENT_RUNBOOK_DRAFT.md`：生产部署运行手册草案。
+- `docs/25_OPERATIONS_AND_BACKUP_DRAFT.md`：运维、备份与恢复草案。
+- `docs/26_MARKET_DATA_PROVIDER_AUTHORIZATION_CHECKLIST_DRAFT.md`：行情 Provider 授权确认清单。
+- `docs/27_PRODUCTION_SERVER_EXECUTION_CHECKLIST.md`：Linux 服务器发布执行清单。
 
 ## 当前状态
 
-当前已存在 Next.js 前端与 FastAPI 后端工程。认证、AI Provider、信息中心、用户每日复盘、站内通知和 `/watchlist` 自选股管理走本地真实 API；今日、个股详情、全市场复盘、估值中心和微信公众号区域仍保持 Mock 或未来边界。真实行情、估值、全市场复盘、外部通知和正式生产数据 Provider 尚未接入；未确认的数据供应商不得写死；不得提交真实 API Key、数据库密码、Cookie、Token、AI Key 或 `APP_ENCRYPTION_KEYS`。
+当前已存在 Next.js 前端与 FastAPI 后端工程。认证、AI Provider、信息中心、用户每日复盘、站内通知、公告候选和 `/watchlist` 自选股管理走本地真实 API；今日、个股详情和行情设置页只消费真实行情状态契约。真实行情、估值、全市场复盘、外部通知和正式生产数据 Provider 尚未授权上线；未确认的数据供应商不得写死；不得提交真实 API Key、数据库密码、Cookie、Token、AI Key 或 `APP_ENCRYPTION_KEYS`。
 
 前端本地联调使用根目录 `.env.local` 中的：
 

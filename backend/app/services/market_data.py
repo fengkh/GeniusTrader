@@ -55,7 +55,7 @@ async def get_market_data_status(session: AsyncSession, *, settings: Settings) -
     ).scalar_one_or_none()
     data_gaps: list[str] = []
     if latest_snapshot is None:
-        data_gaps.append("暂无真实行情快照。前端不得展示 Mock 价格、分时或 K 线。")
+        data_gaps.append("暂无经授权的真实行情数据。前端不得展示 Mock 价格、分时或 K 线。")
     if any(source.source_code == "TUSHARE_PRO" and not source.production_enabled for source in sources):
         data_gaps.append("Tushare 仍为开发验证来源，尚未确认公开展示授权。")
 
@@ -566,9 +566,9 @@ def snapshot_message(status: str) -> str:
         "available": "已显示最近可用真实日级行情快照。",
         "stale": "该股票行情快照早于最近完整交易日，请关注数据过期状态。",
         "partial": "该股票行情字段部分缺失，页面只展示已获得字段。",
-        "unavailable": "暂无真实行情数据。",
+        "unavailable": "暂无经授权的真实行情数据。",
     }
-    return messages.get(status, "暂无真实行情数据。")
+    return messages.get(status, "暂无经授权的真实行情数据。")
 
 
 def snapshot_from_record(*, stock_id, record: DailyMarketSnapshotRecord) -> StockDailySnapshot:

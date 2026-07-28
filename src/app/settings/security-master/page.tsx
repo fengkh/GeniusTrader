@@ -169,7 +169,7 @@ export default function SecurityMasterSettingsPage() {
         <div className="flex gap-2">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" />
           <p>
-            当前阶段只验证 A 股证券基础目录；不接入实时行情、分钟行情、K 线、估值、自动调度或公告自动监控。
+            当前阶段只验证 A 股证券基础目录；不接入逐笔行情、分钟行情、K 线、估值、自动调度或公告自动监控。
           </p>
         </div>
       </section>

@@ -6,13 +6,8 @@ import { LogOut, ShieldCheck } from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
-import { MockRoleSwitcher } from "@/components/mock/MockRoleSwitcher";
-import { MockScenarioSwitcher } from "@/components/mock/MockScenarioSwitcher";
-import { SimulatedDataBadge } from "@/components/status/SimulatedDataBadge";
-import { useMockState } from "@/lib/mock-state";
 
 export default function SettingsPage() {
-  const { role } = useMockState();
   const { user, logout } = useAuth();
   const router = useRouter();
 
@@ -25,14 +20,14 @@ export default function SettingsPage() {
     <PlaceholderPage
       eyebrow="设置与更多"
       title="设置"
-      description="本轮只保留设置页占位和移动端更多入口，不实现真实表单、权限或密钥保存。"
+      description="私人测试版设置入口。AI、通知、数据源和管理员页面均按真实登录身份展示。"
       items={[
         "普通个人设置：时区、日期格式、数字展示偏好、默认首页视图、是否显示已退市股票、基础界面偏好",
         "AI接口配置：Base URL、API Key、模型名称、默认模型和备用模型",
         "模型任务配置：不同AI任务的模型偏好",
-        "通知设置：站内通知偏好与微信公众号Mock状态",
+        "通知设置：站内通知偏好；外部通知仍未接入",
         "数据源状态：最后更新时间、当前同步状态、来源和失败提示",
-        ...(role === "admin" ? ["管理员账户管理：管理员Mock身份可见入口"] : [])
+        ...(user?.role === "admin" ? ["管理员账户管理与发布运行状态：仅管理员可见"] : [])
       ]}
       extra={
         <div className="grid gap-4 lg:grid-cols-3">
@@ -42,17 +37,14 @@ export default function SettingsPage() {
               移动端更多
             </div>
             <p className="text-sm leading-6 text-slate-600">
-              当前页在移动端底部导航中显示为“更多”，集中展示设置入口、当前身份、Mock场景切换和模拟数据说明。
+              当前页在移动端底部导航中显示为“更多”，集中展示设置入口、当前登录身份和发布状态说明。
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <MockRoleSwitcher />
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <MockScenarioSwitcher />
-            <div className="mt-3">
-              <SimulatedDataBadge />
-            </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 lg:col-span-2">
+            <p className="font-semibold">生产发布边界</p>
+            <p className="mt-2">
+              未获授权的真实行情、自动交易、支付、社区、全网爬虫和外部通知默认关闭；普通用户不会看到内部运维错误详情。
+            </p>
           </div>
           <Link
             href="/settings/ai"
@@ -69,7 +61,7 @@ export default function SettingsPage() {
           >
             <p className="text-sm font-semibold text-slate-950">通知设置</p>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              查看站内通知偏好、微信公众号Mock状态和免打扰时间。
+              查看站内通知偏好、外部通知未接入说明和免打扰时间。
             </p>
           </Link>
           <Link
@@ -81,6 +73,17 @@ export default function SettingsPage() {
               查看外部来源注册、实验公告Provider和未来来源规划，不在前端修改功能开关。
             </p>
           </Link>
+          {user?.role === "admin" ? (
+            <Link
+              href="/settings/operations"
+              className="focus-ring rounded-lg border border-slate-200 bg-white p-4 hover:bg-slate-50"
+            >
+              <p className="text-sm font-semibold text-slate-950">发布运行状态</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                查看私人测试版功能矩阵、授权边界和最近任务失败提示的管理员只读入口。
+              </p>
+            </Link>
+          ) : null}
           {user?.role === "admin" ? (
             <Link
               href="/settings/market-data"

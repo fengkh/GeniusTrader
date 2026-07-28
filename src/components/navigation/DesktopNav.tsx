@@ -3,9 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { MockRoleSwitcher } from "@/components/mock/MockRoleSwitcher";
-import { MockScenarioSwitcher } from "@/components/mock/MockScenarioSwitcher";
-import { SimulatedDataBadge } from "@/components/status/SimulatedDataBadge";
 import { APP_NAME, DESKTOP_NAV_ITEMS } from "@/lib/constants";
 
 export function DesktopNav() {
@@ -15,7 +12,7 @@ export function DesktopNav() {
     <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white lg:flex lg:flex-col">
       <div className="border-b border-slate-200 px-5 py-5">
         <div className="text-lg font-semibold text-slate-950">{APP_NAME}</div>
-        <p className="mt-1 text-xs text-slate-500">私人测试版 Mock 原型</p>
+        <p className="mt-1 text-xs text-slate-500">私人测试版</p>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {DESKTOP_NAV_ITEMS.map((item) => {
@@ -39,10 +36,10 @@ export function DesktopNav() {
           );
         })}
       </nav>
-      <div className="space-y-4 border-t border-slate-200 p-4">
-        <MockRoleSwitcher />
-        <MockScenarioSwitcher />
-        <SimulatedDataBadge />
+      <div className="space-y-2 border-t border-slate-200 p-4 text-xs leading-5 text-slate-600">
+        <p className="font-semibold text-slate-900">发布口径</p>
+        <p>未获授权的真实行情功能默认关闭。</p>
+        <p>AI 仅用于摘要和复盘辅助，不生成行情数字。</p>
       </div>
     </aside>
   );
