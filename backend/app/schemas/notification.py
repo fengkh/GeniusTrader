@@ -14,6 +14,10 @@ EventType = Literal[
     "information.high_priority_detected",
     "information.verification_required",
     "ai_task.failed",
+    "research_task.created",
+    "research_task.status_changed",
+    "research_task.due",
+    "observation_condition.due",
 ]
 Severity = Literal["info", "notice", "important"]
 NotificationStatus = Literal["unread", "read", "archived", "expired"]

@@ -1,5 +1,15 @@
 # 领域模型初稿
 
+## 第八阶段：研究工作台实体补充
+
+- `ResearchTask`：用户私有研究事项，保存用户、可选股票、事项类型、标题、描述、状态、优先级、来源类型、来源信息/分析/复盘版本、到期日期、当前证据摘要、解决说明、创建者、幂等键、解决时间和时间戳。
+- `ResearchTaskUpdate`：研究事项状态和证据更新记录，保存事项、用户、前后状态、备注、证据信息/分析/复盘版本、创建者和创建时间。
+- `research_tasks.deduplication_key`：用于信息分析或复盘建议重复采纳时的用户级幂等键；相同用户、来源和建议不得重复创建任务。
+- 每日复盘 `rule_snapshot`：增加 `research_tasks` 和 `observation_verification_results`，用于把用户显式验证结果带入后续复盘材料。
+- `BusinessEvent`：新增 `research_task.created`、`research_task.status_changed`、`research_task.due` 和 `observation_condition.due`，通知偏好默认不让研究事项创建/状态变更产生即时通知。
+
+不变量：AI 只能提出 `suggested_research_tasks` 和 `suggested_observation_conditions`，不得自动写入研究事项；研究事项不得跨用户访问；任务状态不得表达为交易指令。
+
 ## 第六阶段前置子阶段 6A：证券主数据实体
 
 - `Stock`：共享证券主数据实体，保留稳定 `id`，统一 `symbol` 为 `code.exchange`，保存交易所、市场、板块、证券类型、简称、全称、英文名、上市状态、上市/退市日期、历史简称、拼音、拼音首字母、来源、来源记录 ID、来源更新时间、最后同步时间、完整度和是否可搜索。

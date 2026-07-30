@@ -11,8 +11,10 @@ from app.api.routes import (
     information,
     market_data,
     notifications,
+    research_tasks,
     security_master,
     stocks,
+    today,
     watchlist,
 )
 
@@ -25,7 +27,9 @@ api_router.include_router(security_master.router, prefix="/security-master", tag
 api_router.include_router(security_master.admin_router, prefix="/admin/security-master", tags=["admin-security-master"])
 api_router.include_router(market_data.router, prefix="/market-data", tags=["market-data"])
 api_router.include_router(market_data.admin_router, prefix="/admin/market-data", tags=["admin-market-data"])
+api_router.include_router(today.router, prefix="/today", tags=["today"])
 api_router.include_router(watchlist.router, prefix="/watchlist", tags=["watchlist"])
+api_router.include_router(research_tasks.router, prefix="/research-tasks", tags=["research-tasks"])
 api_router.include_router(ai_providers.router, prefix="/ai/providers", tags=["ai-providers"])
 api_router.include_router(information.router, prefix="/information", tags=["information"])
 api_router.include_router(external_sources.router, prefix="/external-sources", tags=["external-sources"])

@@ -1,5 +1,18 @@
 # MVP 验收标准草案
 
+## 第八阶段：模块化研究工作台验收项
+
+- Alembic head 为 `202607230009`；迁移可升级、降级到上一版本并重新升级。
+- `research_tasks` 和 `research_task_updates` 按用户隔离；跨用户读取、更新或删除返回 404 或权限错误。
+- `/api/v1/today/overview` 返回业务日期、自选股计数、待处理事项、优先股票、到期观察条件和最新复盘状态；无行情时不展示 Mock 行情。
+- `/api/v1/watchlist/scanner` 返回自选股扫描行、关注分、触发原因、待办数量、观察条件和复盘 stale 状态。
+- `/api/v1/stocks/{stock_id}/research-dossier` 只允许当前用户自选股访问，返回关注逻辑、官方信息、研究事项、时间线和复盘历史。
+- `/information/tasks` 支持研究事项筛选、创建和状态更新；状态更新写入 `ResearchTaskUpdate`。
+- AI 分析新增建议字段后旧结构仍兼容；建议不自动创建研究事项。
+- 每日复盘规则快照包含用户显式创建或更新的研究事项，以及观察条件验证结果。
+- 前端不新增 AI 聊天、自由问答、conversation/message 表、交易建议或新的一级导航。
+- 后端测试不调用真实 AI、行情、公告网络或真实 Provider。
+
 ## 第六阶段前置子阶段 6A：证券主数据与真实自选股验收项
 
 - 当前 Alembic head 为 `202607230006`，迁移可在开发库升级，并在测试库 downgrade 后重新 upgrade。

@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import Settings
 from app.core.encryption import get_secret_cipher
@@ -24,6 +25,7 @@ from app.models.information import (
     InformationStockRelation,
     VerificationItem,
 )
+from app.models.research import ResearchTask
 from app.models.review_notification import (
     DailyReview,
     DailyReviewItem,
@@ -41,6 +43,7 @@ from app.services import ai_gateway
 from app.services.ai_providers import get_enabled_provider
 from app.services.audit import add_audit_log
 from app.services.notifications import create_business_event
+from app.services.research_tasks import OPEN_RESEARCH_TASK_STATUSES
 
 DAILY_REVIEW_SCHEMA_VERSION = "daily-review-v1"
 DAILY_REVIEW_PROMPT_VERSION = "daily-review-prompt-v1"
@@ -382,6 +385,79 @@ def _relation_snapshot(relations: list[tuple[InformationStockRelation, Stock]]) 
     ]
 
 
+def _research_task_snapshot(task: ResearchTask, settings: Settings) -> dict[str, Any]:
+    latest_update = task.updates[-1] if task.updates else None
+    return {
+        "task_id": str(task.id),
+        "stock_id": str(task.stock_id) if task.stock_id else None,
+        "stock_symbol": task.stock.symbol if task.stock else None,
+        "stock_name": task.stock.name if task.stock else None,
+        "task_type": task.task_type,
+        "title": _safe_text(task.title, 160),
+        "status": task.status,
+        "priority": task.priority,
+        "source_type": task.source_type,
+        "due_date": task.due_date.isoformat() if task.due_date else None,
+        "evidence_summary": _safe_text(task.current_evidence_summary, 160),
+        "resolution_note": _safe_text(task.resolution_note, 160),
+        "latest_update": {
+            "status": latest_update.new_status,
+            "note": _safe_text(latest_update.note, 160),
+            "created_at": latest_update.created_at.isoformat(),
+        }
+        if latest_update
+        else None,
+        "updated_at": to_timezone(task.updated_at, settings.app_timezone).isoformat(),
+    }
+
+
+async def _research_tasks_for_review(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    review_date: date,
+    settings: Settings,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    tasks = list(
+        (
+            await session.execute(
+                select(ResearchTask)
+                .options(selectinload(ResearchTask.stock), selectinload(ResearchTask.updates))
+                .where(ResearchTask.user_id == user_id)
+                .order_by(ResearchTask.due_date.asc().nullslast(), ResearchTask.updated_at.asc(), ResearchTask.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    selected: list[dict[str, Any]] = []
+    observation_results: list[dict[str, Any]] = []
+    for task in tasks:
+        updated_date = to_timezone(task.updated_at, settings.app_timezone).date()
+        created_date = to_timezone(task.created_at, settings.app_timezone).date()
+        resolved_date = to_timezone(task.resolved_at, settings.app_timezone).date() if task.resolved_at else None
+        due_match = task.due_date is not None and task.due_date <= review_date
+        changed_today = updated_date == review_date or created_date == review_date or resolved_date == review_date
+        if not (due_match or changed_today):
+            continue
+        entry = _research_task_snapshot(task, settings)
+        selected.append(entry)
+        if task.task_type == "observation" and task.status not in OPEN_RESEARCH_TASK_STATUSES:
+            observation_results.append(
+                {
+                    "task_id": entry["task_id"],
+                    "stock_id": entry["stock_id"],
+                    "stock_symbol": entry["stock_symbol"],
+                    "title": entry["title"],
+                    "status": entry["status"],
+                    "resolution_note": entry["resolution_note"],
+                    "evidence_summary": entry["evidence_summary"],
+                    "resolved_at": task.resolved_at.isoformat() if task.resolved_at else None,
+                }
+            )
+    return selected, observation_results
+
+
 async def build_rule_snapshot(
     session: AsyncSession,
     *,
@@ -603,6 +679,18 @@ async def build_rule_snapshot(
         data_state = "partial"
     else:
         data_state = "complete"
+    research_tasks, observation_verification_results = await _research_tasks_for_review(
+        session,
+        user_id=user_id,
+        review_date=review_date,
+        settings=settings,
+    )
+    if research_tasks:
+        limitations.append("研究事项为用户显式创建或采纳的待办，不代表系统自动核实结论。")
+    overview["open_research_task_count"] = len(
+        [task for task in research_tasks if task.get("status") in OPEN_RESEARCH_TASK_STATUSES]
+    )
+    overview["observation_verification_result_count"] = len(observation_verification_results)
     watchlist_sections = [
         section
         for section in watchlist_by_stock.values()
@@ -620,6 +708,8 @@ async def build_rule_snapshot(
         "unassigned_information": unassigned_information,
         "pending_relations": pending_relations,
         "global_verification_items": global_verifications,
+        "research_tasks": research_tasks,
+        "observation_verification_results": observation_verification_results,
         "limitations": sorted(set(limitations)),
         "source_item_ids": source_item_ids,
         "rule_summary": _rule_summary(review_date, data_state, overview),
@@ -632,6 +722,16 @@ async def build_rule_snapshot(
         "prompt_version": DAILY_REVIEW_PROMPT_VERSION,
         "schema_version": DAILY_REVIEW_SCHEMA_VERSION,
         "items": [item["fingerprint"] for item in selected],
+        "research_tasks": [
+            {
+                "task_id": task["task_id"],
+                "status": task["status"],
+                "due_date": task["due_date"],
+                "updated_at": task["updated_at"],
+                "latest_update": task["latest_update"],
+            }
+            for task in research_tasks
+        ],
         "watchlist": [
             {
                 "stock_id": section["stock_id"],

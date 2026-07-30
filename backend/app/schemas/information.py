@@ -95,6 +95,24 @@ class VerificationResult(StrictAnalysisModel):
     evidence_needed: str
 
 
+class InformationResearchTaskSuggestion(StrictAnalysisModel):
+    task_type: Literal["verification", "observation", "follow_up", "missing_document", "user_note"]
+    title: str
+    reason: str
+    priority: Literal["low", "medium", "high"] = "medium"
+    related_fact_indexes: list[int] = Field(default_factory=list)
+    suggested_due_date: str | None = None
+
+
+class InformationObservationSuggestion(StrictAnalysisModel):
+    title: str
+    observation_condition: str
+    verification_method: str
+    priority: Literal["low", "medium", "high"] = "medium"
+    related_fact_indexes: list[int] = Field(default_factory=list)
+    suggested_due_date: str | None = None
+
+
 class StructuredInformationAnalysis(StrictAnalysisModel):
     schema_version: str
     content_type: Literal[
@@ -117,10 +135,20 @@ class StructuredInformationAnalysis(StrictAnalysisModel):
     uncertainty: Literal["low", "medium", "high"]
     source_reliability: SourceReliability
     key_claims: list[ClaimItem]
+    confirmed_facts: list[ClaimItem] = Field(default_factory=list)
+    key_changes: list[str] = Field(default_factory=list)
+    affected_dimensions: list[
+        Literal["policy", "industry", "company", "product", "finance", "market", "sentiment", "risk", "other"]
+    ] = Field(default_factory=list)
+    relation_to_focus_reason: Literal["direct", "indirect", "unrelated", "unable_to_determine"] = "unable_to_determine"
     stock_mentions: list[StockMentionResult]
     entity_mentions: list[EntityMentionResult]
     risks: list[RiskResult]
     verification_items: list[VerificationResult]
+    suggested_research_tasks: list[InformationResearchTaskSuggestion] = Field(default_factory=list)
+    suggested_observation_conditions: list[InformationObservationSuggestion] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+    source_coverage: Literal["metadata_only", "partial_text", "full_text", "user_supplied", "unknown"] = "unknown"
     time_horizon: str | None = None
     limitations: list[str]
 

@@ -1,5 +1,11 @@
 # GeniusTrader
 
+## Phase 8 Scope Note
+
+Phase 8 adds the modular watchlist research workbench V0.2. It introduces user-private `research_tasks` and `research_task_updates`, `/today/overview`, `/watchlist/scanner`, `/stocks/{stock_id}/research-dossier`, and `/information/tasks`. AI can suggest research tasks and observation conditions, but only an explicit user action creates or updates tasks. This phase does not add AI chat, conversation threads, trading advice, real Provider networking, automatic scheduling, or production deployment changes.
+
+See `docs/28_MODULAR_RESEARCH_WORKBENCH_V02_DRAFT.md` for the detailed scope.
+
 ## Fullstack Phase 6A Scope Note
 
 Phase 6A adds the A-share security master prerequisite for real watchlist management. It introduces a `SecurityMasterProvider` abstraction, local `stocks` master-data sync, admin-only manual sync, stock search, and `/watchlist` real API management. SSE, SZSE, and BSE remain candidate security-directory sources under development feature flags; BaoStock is only a non-official development supplement. This phase does not add real quotes, minute bars, K-lines, financials, valuation, automatic security-directory scheduling, automatic announcement sync, WeChat, or trading.
@@ -56,6 +62,7 @@ GeniusTrader 是一套面向 A 股个人研究场景的自选股复盘与多源�
 - `docs/25_OPERATIONS_AND_BACKUP_DRAFT.md`：运维、备份与恢复草案。
 - `docs/26_MARKET_DATA_PROVIDER_AUTHORIZATION_CHECKLIST_DRAFT.md`：行情 Provider 授权确认清单。
 - `docs/27_PRODUCTION_SERVER_EXECUTION_CHECKLIST.md`：Linux 服务器发布执行清单。
+- `docs/28_MODULAR_RESEARCH_WORKBENCH_V02_DRAFT.md`：模块化自选股研究工作台 V0.2 草案。
 
 ## 当前状态
 

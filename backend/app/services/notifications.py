@@ -24,6 +24,10 @@ SUPPORTED_EVENT_TYPES = [
     "information.high_priority_detected",
     "information.verification_required",
     "ai_task.failed",
+    "research_task.created",
+    "research_task.status_changed",
+    "research_task.due",
+    "observation_condition.due",
 ]
 
 SEVERITY_RANK = {"info": 0, "notice": 1, "important": 2}
@@ -36,6 +40,10 @@ DEFAULT_PREFERENCES = {
     "information.high_priority_detected": {"enabled": True, "frequency": "immediate", "minimum_severity": "notice"},
     "information.verification_required": {"enabled": True, "frequency": "daily_digest", "minimum_severity": "notice"},
     "ai_task.failed": {"enabled": True, "frequency": "immediate", "minimum_severity": "notice"},
+    "research_task.created": {"enabled": True, "frequency": "daily_digest", "minimum_severity": "info"},
+    "research_task.status_changed": {"enabled": True, "frequency": "daily_digest", "minimum_severity": "info"},
+    "research_task.due": {"enabled": True, "frequency": "daily_digest", "minimum_severity": "notice"},
+    "observation_condition.due": {"enabled": True, "frequency": "immediate", "minimum_severity": "notice"},
 }
 
 
@@ -60,6 +68,10 @@ def _event_title(event: BusinessEvent) -> str:
         "information.high_priority_detected": "重要信息已标记",
         "information.verification_required": "存在待核实事项",
         "ai_task.failed": "AI 分析失败",
+        "research_task.created": "研究事项已创建",
+        "research_task.status_changed": "研究事项状态已更新",
+        "research_task.due": "研究事项到期",
+        "observation_condition.due": "观察条件到期",
     }
     return titles.get(event.event_type, event.event_type)
 
@@ -78,6 +90,11 @@ def _event_summary(event: BusinessEvent) -> str:
         return _safe_summary(f"信息分析发现待核实事项 {payload.get('verification_item_count', 0)} 项，将进入每日复盘。")
     if event.event_type == "ai_task.failed":
         return _safe_summary(f"AI 分析最终失败，错误码：{payload.get('error_code', 'unknown')}。确定性数据仍保留。")
+    if event.event_type in {"research_task.created", "research_task.status_changed"}:
+        return _safe_summary(f"研究事项：{payload.get('title') or payload.get('task_id', '')}")
+    if event.event_type in {"research_task.due", "observation_condition.due"}:
+        due_date = payload.get("due_date", "")
+        return _safe_summary(f"{due_date} 到期：{payload.get('title', '未命名研究事项')}")
     return _safe_summary(event.event_type)
 
 
@@ -86,6 +103,8 @@ def _target_for_event(event: BusinessEvent) -> tuple[str, uuid.UUID, str]:
         return "daily_review", event.subject_id, f"/reviews/{event.subject_id}"
     if event.subject_type == "information_item":
         return "information_item", event.subject_id, f"/information/{event.subject_id}"
+    if event.subject_type == "research_task":
+        return "research_task", event.subject_id, f"/information/tasks?task={event.subject_id}"
     return event.subject_type, event.subject_id, "/notifications"
 
 

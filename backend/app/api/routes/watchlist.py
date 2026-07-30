@@ -29,8 +29,10 @@ from app.schemas.watchlist import (
     WatchlistItemRead,
     WatchlistItemUpdate,
 )
+from app.schemas.workbench import WatchlistScannerOut
 from app.services.audit import add_audit_log
 from app.services.market_data import get_watchlist_market_snapshots
+from app.services.research_workbench import build_watchlist_scanner
 from app.services.watchlist import (
     archive_watchlist_item,
     attach_tags_to_items,
@@ -291,6 +293,45 @@ async def get_watchlist_market_data_snapshots(
     current_user: CurrentUser,
 ) -> dict[str, list[WatchlistMarketSnapshotOut]]:
     return {"data": await get_watchlist_market_snapshots(session, user_id=current_user.id)}
+
+
+@router.get("/scanner", response_model=DataEnvelope[WatchlistScannerOut])
+async def get_watchlist_scanner(
+    session: SessionDependency,
+    current_user: CurrentUser,
+    settings: SettingsDependency,
+    keyword: Annotated[str | None, Query(max_length=100)] = None,
+    group_id: UUID | None = None,
+    tag_id: UUID | None = None,
+    has_new_information: bool | None = None,
+    has_pending_candidate: bool | None = None,
+    has_open_task: bool | None = None,
+    has_high_priority_task: bool | None = None,
+    has_observation: bool | None = None,
+    review_stale: bool | None = None,
+    market_data_available: bool | None = None,
+    exchange: Annotated[str | None, Query(max_length=8)] = None,
+    sort: Annotated[str, Query(max_length=40)] = "attention_score",
+) -> dict[str, WatchlistScannerOut]:
+    return {
+        "data": await build_watchlist_scanner(
+            session,
+            user_id=current_user.id,
+            keyword=keyword,
+            group_id=group_id,
+            tag_id=tag_id,
+            has_new_information=has_new_information,
+            has_pending_candidate=has_pending_candidate,
+            has_open_task=has_open_task,
+            has_high_priority_task=has_high_priority_task,
+            has_observation=has_observation,
+            review_stale=review_stale,
+            market_data_available=market_data_available,
+            exchange=exchange,
+            sort=sort,
+            settings=settings,
+        )
+    }
 
 
 @router.post("", response_model=DataEnvelope[WatchlistItemRead], status_code=201)

@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertCircle, ClipboardList, FileText, Layers3, MessageSquareWarning, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  AlertCircle,
+  CheckSquare,
+  ClipboardList,
+  FileText,
+  RefreshCw,
+  Star
+} from "lucide-react";
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -11,13 +17,12 @@ import { EmptyState } from "@/components/status/EmptyState";
 import { ErrorState } from "@/components/status/ErrorState";
 import { LoadingSkeleton } from "@/components/status/LoadingSkeleton";
 import { humanizeApiError } from "@/lib/api/errors";
-import { getMarketDataStatus, getWatchlistMarketSnapshots } from "@/lib/api/market-data";
-import type { DecimalValue, MarketDataStatus, WatchlistMarketSnapshot } from "@/lib/api/types";
+import type { TodayActionItem, TodayOverview } from "@/lib/api/types";
+import { getTodayOverview } from "@/lib/api/workbench";
 
 export default function TodayPage() {
   const { user, loading: authLoading } = useAuth();
-  const [status, setStatus] = useState<MarketDataStatus | null>(null);
-  const [snapshots, setSnapshots] = useState<WatchlistMarketSnapshot[]>([]);
+  const [overview, setOverview] = useState<TodayOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,12 +34,7 @@ export default function TodayPage() {
     setLoading(true);
     setError(null);
     try {
-      const [nextStatus, nextSnapshots] = await Promise.all([
-        getMarketDataStatus(),
-        getWatchlistMarketSnapshots()
-      ]);
-      setStatus(nextStatus);
-      setSnapshots(nextSnapshots);
+      setOverview(await getTodayOverview());
     } catch (caught) {
       setError(humanizeApiError(caught));
     } finally {
@@ -52,13 +52,11 @@ export default function TodayPage() {
     return undefined;
   }, [authLoading, loadData]);
 
-  const summary = useMemo(() => buildSummary(snapshots), [snapshots]);
-
   if (!user && !authLoading) {
     return (
       <EmptyState
         title="需要登录"
-        description="今日页读取当前用户自选股和真实行情状态，请先登录。"
+        description="今日研究总览读取当前用户自选股、研究事项和复盘状态，请先登录。"
         action={
           <Link
             href="/login?redirect=/today"
@@ -71,12 +69,14 @@ export default function TodayPage() {
     );
   }
 
+  const stats = overview?.overview;
+
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="今日复盘台"
+        eyebrow="研究工作台"
         title="今日"
-        description="先看真实数据日期、来源状态和自选股整体表现；没有真实行情时不展示模拟价格。"
+        description="聚合自选股、公告候选、待分析信息、研究事项、观察条件和最新复盘状态；不生成模拟行情或投资建议。"
         actions={
           <button
             onClick={() => void loadData()}
@@ -84,193 +84,208 @@ export default function TodayPage() {
             className="focus-ring inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
             type="button"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             {loading ? "刷新中" : "刷新"}
           </button>
         }
       />
 
-      {error ? <ErrorState title="今日页加载失败" description={error} /> : null}
+      {error ? <ErrorState title="今日研究总览加载失败" description={error} /> : null}
       {loading || authLoading ? <LoadingSkeleton lines={8} /> : null}
 
-      {!loading && !authLoading ? (
+      {!loading && !authLoading && overview ? (
         <>
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold text-slate-500">1. 数据日期、来源状态和最后更新时间</p>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
-              <MetricCard label="最近完整交易日" value={status?.latest_trade_date ?? "暂无"} />
-              <MetricCard label="行情来源" value={status?.latest_source_code ?? "暂无经授权的真实行情数据"} />
-              <MetricCard label="最后更新时间" value={formatTime(status?.latest_fetched_at ?? null) ?? "暂无"} />
+            <div className="mt-3 grid gap-3 md:grid-cols-4">
+              <MetricCard label="业务日期" value={stats?.business_date ?? "暂无"} />
+              <MetricCard label="自选股" value={`${stats?.watchlist_count ?? 0}只`} />
+              <MetricCard label="行情状态" value={marketStatusLabel(stats?.market_data_status)} />
+              <MetricCard label="最新复盘" value={reviewStatusLabel(stats?.latest_review_status)} />
             </div>
-            <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
-              {status?.user_notice ?? "开发验证来源，尚未确认公开展示授权。"}
-              {status?.data_gaps.length ? ` ${status.data_gaps.join(" ")}` : ""}
+            <p className="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm leading-6 text-blue-950">
+              今日页只展示后端已聚合的用户私有数据。行情、公告、AI 分析和研究事项的失败会分区降级，不会让整页不可用。
+            </p>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold text-slate-500">2. 自选股整体研究状态</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+              <MetricCard label="新增信息相关股票" value={`${stats?.stocks_with_new_information ?? 0}只`} />
+              <MetricCard label="新公告候选" value={`${stats?.new_announcement_candidate_count ?? 0}条`} />
+              <MetricCard label="待处理公告候选" value={`${stats?.pending_announcement_candidate_count ?? 0}条`} />
+              <MetricCard label="待分析信息" value={`${stats?.information_needing_analysis_count ?? 0}条`} />
+              <MetricCard label="打开研究事项" value={`${stats?.open_research_task_count ?? 0}项`} />
+              <MetricCard label="到期观察条件" value={`${stats?.due_observation_count ?? 0}项`} />
             </div>
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold text-slate-500">2. 自选股整体表现</p>
-            {snapshots.length === 0 ? (
-              <div className="mt-4">
-                <EmptyState
-                  title="暂无自选股"
-                  description="请先进入自选股页添加真实股票。没有自选股时今日页不生成模拟表现。"
-                  action={
-                    <Link
-                      href="/watchlist"
-                      className="focus-ring inline-flex h-10 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"
-                    >
-                      去自选股页
-                    </Link>
-                  }
-                />
-              </div>
+            <div className="flex items-center gap-2">
+              <Star className="h-5 w-5 text-amber-700" />
+              <h2 className="text-lg font-semibold text-slate-950">3. 需要优先查看的自选股</h2>
+            </div>
+            {overview.priority_stocks.length === 0 ? (
+              <EmptyBlock title="暂无优先股票" description="当前没有公告候选、待办或观察条件触发优先级。" />
             ) : (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                <MetricCard label="自选股总数" value={`${summary.total}只`} />
-                <MetricCard label="上涨" value={`${summary.rising}只`} tone="text-red-600" />
-                <MetricCard label="下跌" value={`${summary.falling}只`} tone="text-emerald-700" />
-                <MetricCard label="停牌/未交易" value={`${summary.notTrading}只`} />
-                <MetricCard label="数据异常" value={`${summary.dataIssues}只`} tone="text-orange-700" />
-                <MetricCard label="平均表现" value={summary.averageChange === null ? "暂无" : formatChange(summary.averageChange)} tone={changeTone(summary.averageChange)} />
+              <div className="mt-4 grid gap-3">
+                {overview.priority_stocks.map((stock) => (
+                  <Link
+                    key={stock.stock_id}
+                    href={`/watchlist/${stock.stock_id}`}
+                    className="focus-ring grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 hover:bg-white md:grid-cols-[1fr_100px_1.6fr]"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-950">{stock.name}</p>
+                      <p className="text-xs text-slate-500">{stock.symbol}</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-slate-950">{stock.priority_score}</p>
+                      <p className="text-xs text-slate-500">关注分</p>
+                    </div>
+                    <p className="text-sm leading-6 text-slate-700">
+                      {stock.priority_reasons.length ? stock.priority_reasons.join("；") : "暂无具体触发原因。"}
+                    </p>
+                  </Link>
+                ))}
               </div>
             )}
           </section>
 
-          <PlaceholderSection
-            index="3"
-            icon={<AlertCircle className="h-5 w-5 text-rose-700" />}
-            title="今日重大异动"
-            description="真实异动规则需要真实行情快照和历史样本验证；当前不会用虚构异动填充。"
-          />
-          <PlaceholderSection
-            index="4"
-            icon={<FileText className="h-5 w-5 text-blue-700" />}
-            title="重大公告与重要资讯"
-            description="公告候选收件箱和人工导入闭环已独立存在；今日页聚合待后续真实资讯自动更新完成后接入。"
-          />
-          <PlaceholderSection
-            index="5"
-            icon={<Layers3 className="h-5 w-5 text-slate-700" />}
-            title="板块和个人分组表现"
-            description="板块表现需要真实行情快照覆盖后计算；无真实快照时不展示模拟分组涨跌。"
-          />
-          <PlaceholderSection
-            index="6"
-            icon={<MessageSquareWarning className="h-5 w-5 text-amber-700" />}
-            title="舆情变化与待核实信息"
-            description="舆情仍以用户主动录入和 AI 分析结果为准；当前不做全网自动爬取。"
-          />
-          <PlaceholderSection
-            index="7"
-            icon={<ClipboardList className="h-5 w-5 text-blue-700" />}
-            title="今日整体复盘"
-            description="每日复盘继续由复盘页触发；今日页只在真实聚合接入后展示摘要。"
-          />
-          <PlaceholderSection
-            index="8"
-            icon={<ClipboardList className="h-5 w-5 text-slate-700" />}
-            title="待处理舆情和未完成复盘"
-            description="待处理任务需要真实业务事件聚合后显示；当前不使用模拟任务数量。"
-          />
+          <ActionSection actions={overview.action_items} />
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5 text-blue-700" />
+              <h2 className="text-lg font-semibold text-slate-950">5. 今日到期观察条件</h2>
+            </div>
+            {overview.observation_conditions.length === 0 ? (
+              <EmptyBlock title="暂无到期观察条件" description="用户采纳或创建观察条件后，到期项会在这里提示验证。" />
+            ) : (
+              <div className="mt-4 grid gap-2">
+                {overview.observation_conditions.map((item) => (
+                  <Link
+                    key={item.task_id}
+                    href={`/information/tasks?task=${item.task_id}`}
+                    className="focus-ring rounded-md border border-blue-100 bg-blue-50 p-3 text-sm leading-6 text-blue-950 hover:bg-white"
+                  >
+                    <span className="font-semibold">{item.title}</span>
+                    <span className="ml-2 text-blue-700">
+                      {item.stock ? `${item.stock.name} · ${item.stock.symbol}` : "未关联个股"}
+                    </span>
+                    <span className="ml-2 text-blue-700">到期：{item.due_date ?? "未设置"}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-slate-700" />
+              <h2 className="text-lg font-semibold text-slate-950">6. 今日整体复盘状态</h2>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              <MetricCard label="复盘日期" value={overview.latest_review.review_date ?? "暂无"} />
+              <MetricCard label="状态" value={reviewStatusLabel(overview.latest_review.status)} />
+              <MetricCard label="版本" value={overview.latest_review.version ? `v${overview.latest_review.version}` : "暂无"} />
+              <MetricCard label="生成任务" value={overview.latest_review.generation_in_progress ? "生成中" : "空闲"} />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href="/reviews"
+                className="focus-ring inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                进入复盘历史
+              </Link>
+              {overview.latest_review.review_id ? (
+                <Link
+                  href={`/reviews/${overview.latest_review.review_id}`}
+                  className="focus-ring inline-flex h-9 items-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  查看最新复盘
+                </Link>
+              ) : null}
+            </div>
+          </section>
         </>
       ) : null}
     </div>
   );
 }
 
-function PlaceholderSection({
-  index,
-  icon,
-  title,
-  description
-}: {
-  index: string;
-  icon: ReactNode;
-  title: string;
-  description: string;
-}) {
+function ActionSection({ actions }: { actions: TodayActionItem[] }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2">
-        {icon}
-        <div>
-          <p className="text-xs font-semibold text-slate-500">{index}. {title}</p>
-          <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+        <AlertCircle className="h-5 w-5 text-rose-700" />
+        <h2 className="text-lg font-semibold text-slate-950">4. 今日待处理事项</h2>
+      </div>
+      {actions.length === 0 ? (
+        <EmptyBlock title="暂无待处理事项" description="没有待分析信息、待处理公告候选、过期复盘或到期观察条件。" />
+      ) : (
+        <div className="mt-4 grid gap-2 md:grid-cols-2">
+          {actions.map((action) => (
+            <Link
+              key={`${action.target_url}-${action.title}`}
+              href={action.target_url}
+              className={`focus-ring rounded-md border p-3 text-sm font-semibold hover:bg-white ${actionTone(action.severity)}`}
+            >
+              <FileText className="mb-2 h-4 w-4" />
+              {action.title}：{action.count}
+            </Link>
+          ))}
         </div>
-      </div>
-      <div className="mt-4">
-        <EmptyState title="待真实数据接入" description={description} />
-      </div>
+      )}
     </section>
   );
 }
 
-function MetricCard({ label, value, tone = "text-slate-950" }: { label: string; value: string; tone?: string }) {
+function EmptyBlock({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${tone}`}>{value}</p>
+    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-sm font-semibold text-slate-900">{title}</p>
+      <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
     </div>
   );
 }
 
-function buildSummary(rows: WatchlistMarketSnapshot[]) {
-  const changes = rows
-    .map((row) => decimalNumber(row.snapshot?.pct_change ?? null))
-    .filter((value): value is number => value !== null);
-  const averageChange = changes.length
-    ? changes.reduce((sum, value) => sum + value, 0) / changes.length
-    : null;
-  return {
-    total: rows.length,
-    rising: changes.filter((value) => value > 0).length,
-    falling: changes.filter((value) => value < 0).length,
-    notTrading: rows.filter((row) => row.snapshot?.is_trading === false).length,
-    dataIssues: rows.filter((row) => row.status !== "available").length,
-    averageChange
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function marketStatusLabel(value?: string | null): string {
+  if (value === "available") {
+    return "可用";
+  }
+  if (value === "partial" || value === "stale") {
+    return "部分可用";
+  }
+  return "暂无可用行情";
+}
+
+function reviewStatusLabel(value?: string | null): string {
+  const labels: Record<string, string> = {
+    complete: "完整",
+    partial: "部分完成",
+    empty: "空复盘",
+    failed: "失败",
+    stale: "需要更新"
   };
+  return value ? labels[value] ?? value : "暂无";
 }
 
-function decimalNumber(value: DecimalValue | null): number | null {
-  if (value === null) {
-    return null;
+function actionTone(value: "info" | "notice" | "important"): string {
+  if (value === "important") {
+    return "border-rose-200 bg-rose-50 text-rose-900";
   }
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : null;
-}
-
-function formatChange(value: number): string {
-  const direction = value > 0 ? "上涨" : value < 0 ? "下跌" : "持平";
-  const prefix = value > 0 ? "+" : "";
-  return `${prefix}${value.toFixed(2)}% ${direction}`;
-}
-
-function changeTone(value: number | null): string {
-  if (value === null) {
-    return "text-slate-500";
+  if (value === "notice") {
+    return "border-amber-200 bg-amber-50 text-amber-900";
   }
-  if (value > 0) {
-    return "text-red-600";
-  }
-  if (value < 0) {
-    return "text-emerald-700";
-  }
-  return "text-slate-600";
-}
-
-function formatTime(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  try {
-    return new Intl.DateTimeFormat("zh-CN", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
+  return "border-blue-200 bg-blue-50 text-blue-900";
 }

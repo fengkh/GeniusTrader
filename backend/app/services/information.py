@@ -612,6 +612,10 @@ def _analysis_schema_example() -> dict[str, Any]:
         "uncertainty": "high",
         "source_reliability": {"level": "low", "reasons": ["缺少正式文件"]},
         "key_claims": [{"claim": "关键主张", "evidence_text": "原文证据片段", "confidence": 0.5}],
+        "confirmed_facts": [{"claim": "原文直接确认的事实", "evidence_text": "原文证据片段", "confidence": 0.8}],
+        "key_changes": ["相较用户关注逻辑或上一条材料的关键变化；没有则为空数组"],
+        "affected_dimensions": ["industry"],
+        "relation_to_focus_reason": "unable_to_determine",
         "stock_mentions": [],
         "entity_mentions": [
             {
@@ -631,6 +635,28 @@ def _analysis_schema_example() -> dict[str, Any]:
                 "evidence_needed": "正式公告或监管披露",
             }
         ],
+        "suggested_research_tasks": [
+            {
+                "task_type": "verification",
+                "title": "核实未确认事项",
+                "reason": "原文存在未经正式披露确认的主张",
+                "priority": "high",
+                "related_fact_indexes": [0],
+                "suggested_due_date": None,
+            }
+        ],
+        "suggested_observation_conditions": [
+            {
+                "title": "观察正式披露是否出现",
+                "observation_condition": "出现正式公告或权威披露",
+                "verification_method": "检查上市公司公告或监管公开信息",
+                "priority": "medium",
+                "related_fact_indexes": [0],
+                "suggested_due_date": None,
+            }
+        ],
+        "open_questions": ["仍需产品或用户后续核实的问题"],
+        "source_coverage": "partial_text",
         "time_horizon": None,
         "limitations": ["单一来源", "无法联网核实"],
     }
@@ -662,10 +688,18 @@ def _analysis_contract_text() -> str:
             "uncertainty",
             "source_reliability",
             "key_claims",
+            "confirmed_facts",
+            "key_changes",
+            "affected_dimensions",
+            "relation_to_focus_reason",
             "stock_mentions",
             "entity_mentions",
             "risks",
             "verification_items",
+            "suggested_research_tasks",
+            "suggested_observation_conditions",
+            "open_questions",
+            "source_coverage",
             "time_horizon",
             "limitations",
         ],
@@ -685,6 +719,19 @@ def _analysis_contract_text() -> str:
         "evidence_strength_enum": ["strong", "medium", "weak", "insufficient"],
         "uncertainty_enum": ["low", "medium", "high"],
         "source_reliability_level_enum": ["high", "medium", "low", "unknown"],
+        "affected_dimension_enum": [
+            "policy",
+            "industry",
+            "company",
+            "product",
+            "finance",
+            "market",
+            "sentiment",
+            "risk",
+            "other",
+        ],
+        "relation_to_focus_reason_enum": ["direct", "indirect", "unrelated", "unable_to_determine"],
+        "source_coverage_enum": ["metadata_only", "partial_text", "full_text", "user_supplied", "unknown"],
         "relation_type_enum": [
             "directly_related",
             "indirectly_related",
@@ -707,7 +754,11 @@ def _analysis_contract_text() -> str:
             "unknown",
         ],
         "array_item_shapes": {
-            "facts/key_claims": {"claim": "string", "evidence_text": "string", "confidence": "0..1 number"},
+            "facts/key_claims/confirmed_facts": {
+                "claim": "string",
+                "evidence_text": "string",
+                "confidence": "0..1 number",
+            },
             "opinions": {
                 "claim": "string",
                 "holder": "string or null",
@@ -743,6 +794,22 @@ def _analysis_contract_text() -> str:
                 "priority": "low|medium|high",
                 "evidence_needed": "string",
             },
+            "suggested_research_tasks": {
+                "task_type": "verification|observation|follow_up|missing_document|user_note",
+                "title": "string",
+                "reason": "string",
+                "priority": "low|medium|high",
+                "related_fact_indexes": "array of integer indexes into facts; empty if not applicable",
+                "suggested_due_date": "YYYY-MM-DD string or null",
+            },
+            "suggested_observation_conditions": {
+                "title": "string",
+                "observation_condition": "fact-verification condition, not a trading trigger",
+                "verification_method": "how the user can verify with source materials",
+                "priority": "low|medium|high",
+                "related_fact_indexes": "array of integer indexes into facts; empty if not applicable",
+                "suggested_due_date": "YYYY-MM-DD string or null",
+            },
         },
     }
     example = _analysis_schema_example()
@@ -762,6 +829,13 @@ def _analysis_contract_text() -> str:
         "- opinions are judgments, forecasts, interpretations, expectations, or analyst/self-media views, with holder when available.\n"
         "- rumors are unverified claims or predictions that need confirmation, especially plans, approvals, prices, orders, capacity, funding, or future performance.\n"
         "- verification_items should list concrete checks needed for important unverified claims.\n"
+        "- confirmed_facts must only contain facts directly supported by supplied text; if no direct support exists, return an empty array.\n"
+        "- key_changes should describe changes relevant to the user's research context only when the supplied text supports them.\n"
+        "- affected_dimensions must use the allowed enum and should stay empty when the dimension cannot be determined.\n"
+        "- suggested_research_tasks and suggested_observation_conditions are suggestions only; the system will not automatically create tasks from them.\n"
+        "- suggested observation conditions must be fact-verification conditions, never buy/sell, price target, position, or return conditions.\n"
+        "- open_questions should capture unresolved factual questions that need later source verification.\n"
+        "- source_coverage should reflect the available material; use metadata_only when only title or metadata is available.\n"
         "- limitations should include source and verification limitations when the text lacks official documents or independent corroboration.\n"
         "- For unverified, single-source, simulated, rumor-like, or forecast-heavy materials, limitations should usually contain 3 to 6 concrete items covering missing official documents, limited source base, inability to externally verify, predictive content, and missing operational details.\n"
         "- stock_mentions should include explicitly mentioned stock names or symbols. For exchange-qualified symbols like 600519.SH, put symbol as 600519 and name when present.\n"
@@ -775,8 +849,9 @@ def _analysis_contract_text() -> str:
         "Concise output limits:\n"
         "- Start the response with '{' and output JSON only; do not output reasoning, markdown, prefaces, or explanations.\n"
         "- summary should be no more than 160 Chinese characters or 90 English words.\n"
-        "- facts: at most 5 items; opinions: at most 3; rumors: at most 3; key_claims: at most 5.\n"
+        "- facts: at most 5 items; opinions: at most 3; rumors: at most 3; key_claims: at most 5; confirmed_facts: at most 5.\n"
         "- stock_mentions: at most 5; entity_mentions: at most 8; risks: at most 3; verification_items: at most 5; limitations: at most 5.\n"
+        "- suggested_research_tasks: at most 3; suggested_observation_conditions: at most 3; open_questions: at most 5; key_changes: at most 5.\n"
         "- evidence_text values should be short source excerpts, preferably no more than 80 Chinese characters or 50 English words.\n"
         "- Prefer representative items over exhaustive extraction when the article is long.\n\n"
         f"JSON_SCHEMA:\n{json.dumps(compact_schema, ensure_ascii=False)}\n\n"

@@ -20,6 +20,7 @@ from app.models.information import (
     VerificationItem,
 )
 from app.models.market_data import MarketDataSource, MarketDataSyncRun, StockDailySnapshot
+from app.models.research import ResearchTask, ResearchTaskUpdate
 from app.models.review_notification import (
     BusinessEvent,
     DailyReview,
@@ -63,6 +64,8 @@ __all__ = [
     "NotificationPreference",
     "ProviderSyncRun",
     "ProviderSyncState",
+    "ResearchTask",
+    "ResearchTaskUpdate",
     "SecurityMasterSyncRun",
     "SecuritySourceRecord",
     "Stock",

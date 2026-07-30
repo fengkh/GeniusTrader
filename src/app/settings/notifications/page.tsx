@@ -365,7 +365,11 @@ function eventTypeLabel(eventType: NotificationEventType): string {
     "user_daily_review.became_stale": "复盘需要更新",
     "information.high_priority_detected": "重要信息",
     "information.verification_required": "待核实事项",
-    "ai_task.failed": "AI分析失败"
+    "ai_task.failed": "AI分析失败",
+    "research_task.created": "研究事项已创建",
+    "research_task.status_changed": "研究事项状态更新",
+    "research_task.due": "研究事项到期",
+    "observation_condition.due": "观察条件到期"
   };
   return labels[eventType];
 }

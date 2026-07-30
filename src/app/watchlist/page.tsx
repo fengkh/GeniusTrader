@@ -28,10 +28,12 @@ import type {
   SecurityMasterStatus,
   StockRead,
   UserTagRead,
+  WatchlistScannerRow,
   WatchlistMarketSnapshot,
   WatchlistGroupRead,
   WatchlistItemRead
 } from "@/lib/api/types";
+import { getWatchlistScanner } from "@/lib/api/workbench";
 import {
   createWatchlistGroup,
   createWatchlistItem,
@@ -72,6 +74,7 @@ const listingStatusLabels: Record<string, string> = {
 export default function WatchlistPage() {
   const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<WatchlistItemRead[]>([]);
+  const [scannerRows, setScannerRows] = useState<WatchlistScannerRow[]>([]);
   const [groups, setGroups] = useState<WatchlistGroupRead[]>([]);
   const [tags, setTags] = useState<UserTagRead[]>([]);
   const [marketSnapshots, setMarketSnapshots] = useState<Record<string, WatchlistMarketSnapshot>>({});
@@ -95,14 +98,16 @@ export default function WatchlistPage() {
     setLoading(true);
     setError(null);
     try {
-      const [watchlistPage, groupRows, tagRows, status, snapshotRows] = await Promise.all([
+      const [watchlistPage, groupRows, tagRows, status, snapshotRows, scanner] = await Promise.all([
         listWatchlistItems({ limit: 100 }),
         listWatchlistGroups(),
         listWatchlistTags(),
         getSecurityMasterStatus(),
-        getWatchlistMarketSnapshots()
+        getWatchlistMarketSnapshots(),
+        getWatchlistScanner()
       ]);
       setItems(watchlistPage.items);
+      setScannerRows(scanner.items);
       setGroups(groupRows);
       setTags(tagRows);
       setMarketSnapshots(Object.fromEntries(snapshotRows.map((row) => [row.watchlist_item_id, row])));
@@ -150,6 +155,10 @@ export default function WatchlistPage() {
       return matchesQuery && matchesGroup && matchesTag && matchesExchange && matchesBoard;
     });
   }, [board, exchange, groupId, items, query, tagId]);
+  const scannerByItemId = useMemo(
+    () => Object.fromEntries(scannerRows.map((row) => [row.watchlist_item_id, row])),
+    [scannerRows]
+  );
 
   function openEdit(item: WatchlistItemRead) {
     setEditingItem(item);
@@ -288,7 +297,7 @@ export default function WatchlistPage() {
               </button>
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              当前显示 {filteredItems.length} / {items.length} 只；行情为空时明确显示“暂无经授权的真实行情数据。”。
+              当前显示 {filteredItems.length} / {items.length} 只；扫描器按公告候选、待分析信息、研究事项和复盘 stale 状态计算关注分，不生成行情数字。
             </p>
           </section>
 
@@ -310,8 +319,17 @@ export default function WatchlistPage() {
             <EmptyState title="没有匹配的自选股" description="请调整搜索、分组、标签、交易所或板块筛选条件。" />
           ) : (
             <>
-              <DesktopWatchlistTable items={filteredItems} marketSnapshots={marketSnapshots} onEdit={openEdit} />
-              <MobileWatchlistList items={filteredItems} marketSnapshots={marketSnapshots} />
+              <DesktopWatchlistTable
+                items={filteredItems}
+                marketSnapshots={marketSnapshots}
+                scannerByItemId={scannerByItemId}
+                onEdit={openEdit}
+              />
+              <MobileWatchlistList
+                items={filteredItems}
+                marketSnapshots={marketSnapshots}
+                scannerByItemId={scannerByItemId}
+              />
             </>
           )}
         </>
@@ -382,41 +400,46 @@ function SecurityDirectoryNotice({ status }: { status: SecurityMasterStatus }) {
 function DesktopWatchlistTable({
   items,
   marketSnapshots,
+  scannerByItemId,
   onEdit
 }: {
   items: WatchlistItemRead[];
   marketSnapshots: Record<string, WatchlistMarketSnapshot>;
+  scannerByItemId: Record<string, WatchlistScannerRow>;
   onEdit: (item: WatchlistItemRead) => void;
 }) {
   return (
     <section className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:block">
-      <div className="grid grid-cols-[1.25fr_0.85fr_0.9fr_0.9fr_1.1fr_1fr_1.2fr_0.9fr] border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
+      <div className="grid grid-cols-[1.25fr_0.85fr_0.9fr_0.9fr_1.1fr_1.1fr_1.2fr_0.9fr] border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500">
         <span>股票</span>
         <span>最新价 / 涨跌</span>
         <span>板块</span>
-        <span>上市状态</span>
+        <span>研究优先级</span>
         <span>行情数据状态</span>
-        <span>分组 / 标签</span>
-        <span>关注原因</span>
+        <span>任务 / 复盘</span>
+        <span>核心触发</span>
         <span>操作</span>
       </div>
       {items.map((item) => {
         const market = marketSnapshots[item.id];
+        const scanner = scannerByItemId[item.id];
         return (
           <div
             key={item.id}
-            className="grid grid-cols-[1.25fr_0.85fr_0.9fr_0.9fr_1.1fr_1fr_1.2fr_0.9fr] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
+            className="grid grid-cols-[1.25fr_0.85fr_0.9fr_0.9fr_1.1fr_1.1fr_1.2fr_0.9fr] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
           >
             <StockIdentity stock={item.stock} />
             <MarketPriceCell market={market} />
             <p className="text-sm text-slate-700">{boardLabel(item.stock.board)}</p>
-            <StatusPill value={listingStatusLabel(item.stock.listing_status)} tone={statusTone(item.stock.listing_status)} />
+            <ScannerScore row={scanner} />
             <MarketStatusCell market={market} />
             <div className="min-w-0 text-xs leading-5 text-slate-600">
-              <p className="font-medium text-slate-800">{item.group?.name ?? "未分组"}</p>
-              <p className="truncate">{item.tags.length ? item.tags.map((tag) => tag.name).join("；") : "无标签"}</p>
+              <p className="font-medium text-slate-800">待办 {scanner?.open_verification_count ?? 0} / 观察 {scanner?.open_observation_count ?? 0}</p>
+              <p className="truncate">复盘：{reviewStatusLabel(scanner?.review_status)}{scanner?.stale ? " · stale" : ""}</p>
             </div>
-            <p className="line-clamp-2 text-sm leading-6 text-slate-700">{item.attention_reason || "未填写"}</p>
+            <p className="line-clamp-2 text-sm leading-6 text-slate-700">
+              {scanner?.attention_reasons.length ? scanner.attention_reasons.join("；") : item.attention_reason || "暂无触发原因"}
+            </p>
             <div className="flex flex-wrap gap-2">
               <Link
                 href={`/watchlist/${item.stock.id}`}
@@ -442,16 +465,19 @@ function DesktopWatchlistTable({
 
 function MobileWatchlistList({
   items,
-  marketSnapshots
+  marketSnapshots,
+  scannerByItemId
 }: {
   items: WatchlistItemRead[];
   marketSnapshots: Record<string, WatchlistMarketSnapshot>;
+  scannerByItemId: Record<string, WatchlistScannerRow>;
 }) {
   return (
     <section className="grid gap-2 lg:hidden">
       {items.map((item) => {
         const market = marketSnapshots[item.id];
         const snapshot = market?.snapshot;
+        const scanner = scannerByItemId[item.id];
         return (
           <Link
             key={item.id}
@@ -468,10 +494,12 @@ function MobileWatchlistList({
                 {exchangeLabel(item.stock.exchange)} / {boardLabel(item.stock.board)} / {item.group?.name ?? "未分组"}
               </p>
               <p className="mt-1 truncate text-[11px] text-slate-500">
-                {item.tags.length ? item.tags.slice(0, 2).map((tag) => tag.name).join("；") : "无标签"}
-                {item.tags.length > 2 ? ` +${item.tags.length - 2}` : ""}
+                {item.tags.length ? item.tags.slice(0, 1).map((tag) => tag.name).join("；") : listingStatusLabel(item.stock.listing_status)}
+                {item.tags.length > 1 ? ` +${item.tags.length - 1}` : ""}
               </p>
-              <p className="mt-1 truncate text-[11px] text-slate-500">{market?.message ?? "暂无经授权的真实行情数据。"}</p>
+              <p className="mt-1 truncate text-[11px] text-slate-500">
+                {scanner?.attention_reasons[0] ?? market?.message ?? "暂无研究触发。"}
+              </p>
             </div>
             <div className="flex min-w-0 flex-col items-end justify-between">
               <div className="text-right">
@@ -481,13 +509,26 @@ function MobileWatchlistList({
                 </p>
               </div>
               <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${marketStatusTone(market?.status)}`}>
-                {marketStatusLabel(market?.status)}
+                {scanner ? `关注 ${scanner.attention_score}` : marketStatusLabel(market?.status)}
               </span>
             </div>
           </Link>
         );
       })}
     </section>
+  );
+}
+
+function ScannerScore({ row }: { row: WatchlistScannerRow | undefined }) {
+  if (!row) {
+    return <StatusPill value="未扫描" tone="slate" />;
+  }
+  const tone = row.attention_score >= 60 ? "rose" : row.attention_score >= 25 ? "amber" : "slate";
+  return (
+    <div className="text-xs leading-5">
+      <StatusPill value={`${row.attention_score} 分`} tone={tone} />
+      <p className="mt-1 text-slate-500">公告 {row.pending_candidate_count} / 信息 {row.new_information_count}</p>
+    </div>
   );
 }
 
@@ -1039,6 +1080,17 @@ function marketStatusLabel(value: string | undefined): string {
     return "部分缺失";
   }
   return "暂无授权行情";
+}
+
+function reviewStatusLabel(value: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    complete: "完整",
+    partial: "部分",
+    empty: "空",
+    failed: "失败",
+    stale: "需更新"
+  };
+  return value ? labels[value] ?? value : "暂无";
 }
 
 function marketStatusPillTone(value: string | undefined): "slate" | "emerald" | "amber" | "rose" {

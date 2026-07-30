@@ -464,6 +464,236 @@ export interface WatchlistMarketSnapshot {
   message: string;
 }
 
+export type ResearchTaskType = "verification" | "observation" | "follow_up" | "missing_document" | "user_note";
+export type ResearchTaskStatus =
+  | "pending"
+  | "monitoring"
+  | "confirmed"
+  | "disproved"
+  | "partially_confirmed"
+  | "unable_to_determine"
+  | "no_longer_applicable"
+  | "dismissed";
+export type ResearchTaskPriority = "low" | "medium" | "high";
+export type ResearchTaskSourceType = "user" | "information_analysis" | "daily_review" | "announcement" | "system_rule";
+
+export interface ResearchTaskUpdate {
+  id: UUID;
+  task_id: UUID;
+  user_id: UUID;
+  previous_status: string | null;
+  new_status: string;
+  note: string | null;
+  evidence_information_item_id: UUID | null;
+  evidence_analysis_version_id: UUID | null;
+  evidence_daily_review_version_id: UUID | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ResearchTask {
+  id: UUID;
+  user_id: UUID;
+  stock_id: UUID | null;
+  stock: StockRead | null;
+  task_type: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  source_type: string;
+  source_information_item_id: UUID | null;
+  source_analysis_version_id: UUID | null;
+  source_daily_review_id: UUID | null;
+  source_daily_review_version_id: UUID | null;
+  due_date: string | null;
+  current_evidence_summary: string | null;
+  resolution_note: string | null;
+  created_by: string;
+  deduplication_key: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  updates: ResearchTaskUpdate[];
+}
+
+export interface ResearchTaskPayload {
+  stock_id?: UUID | null;
+  task_type?: ResearchTaskType;
+  title: string;
+  description: string;
+  status?: ResearchTaskStatus;
+  priority?: ResearchTaskPriority;
+  source_type?: ResearchTaskSourceType;
+  source_information_item_id?: UUID | null;
+  source_analysis_version_id?: UUID | null;
+  source_daily_review_id?: UUID | null;
+  source_daily_review_version_id?: UUID | null;
+  due_date?: string | null;
+  current_evidence_summary?: string | null;
+  suggestion_identifier?: string | null;
+}
+
+export interface ResearchTaskStatusPayload {
+  status: ResearchTaskStatus;
+  note?: string | null;
+  evidence_information_item_id?: UUID | null;
+  evidence_analysis_version_id?: UUID | null;
+  evidence_daily_review_version_id?: UUID | null;
+}
+
+export interface TodayOverviewStats {
+  business_date: string;
+  watchlist_count: number;
+  stocks_with_new_information: number;
+  new_announcement_candidate_count: number;
+  pending_announcement_candidate_count: number;
+  stale_review_count: number;
+  open_research_task_count: number;
+  due_observation_count: number;
+  information_needing_analysis_count: number;
+  latest_review_status: string | null;
+  market_data_status: string;
+}
+
+export interface PriorityStock {
+  stock_id: UUID;
+  symbol: string;
+  name: string;
+  priority_score: number;
+  priority_reasons: string[];
+  new_information_count: number;
+  pending_candidate_count: number;
+  open_task_count: number;
+  due_observation_count: number;
+  review_status: string | null;
+  latest_market_snapshot: WatchlistMarketSnapshot | null;
+}
+
+export interface TodayActionItem {
+  count: number;
+  target_url: string;
+  severity: "info" | "notice" | "important";
+  title: string;
+}
+
+export interface TodayObservationCondition {
+  task_id: UUID;
+  stock: StockRead | null;
+  title: string;
+  due_date: string | null;
+  status: string;
+  source_review: string | null;
+}
+
+export interface LatestReview {
+  review_id: UUID | null;
+  review_date: string | null;
+  status: string | null;
+  stale: boolean;
+  version: number | null;
+  generation_in_progress: boolean;
+}
+
+export interface TodayOverview {
+  overview: TodayOverviewStats;
+  priority_stocks: PriorityStock[];
+  action_items: TodayActionItem[];
+  observation_conditions: TodayObservationCondition[];
+  latest_review: LatestReview;
+}
+
+export interface WatchlistScannerRow {
+  watchlist_item_id: UUID;
+  stock_id: UUID;
+  symbol: string;
+  name: string;
+  exchange: string;
+  group: WatchlistGroupRead | null;
+  tags: UserTagRead[];
+  focus_reason: string | null;
+  latest_market_snapshot: WatchlistMarketSnapshot | null;
+  new_information_count: number;
+  official_announcement_count_7d: number;
+  pending_candidate_count: number;
+  open_verification_count: number;
+  open_observation_count: number;
+  high_priority_task_count: number;
+  review_status: string | null;
+  latest_review_date: string | null;
+  stale: boolean;
+  last_information_at: string | null;
+  attention_score: number;
+  attention_reasons: string[];
+}
+
+export interface WatchlistScanner {
+  items: WatchlistScannerRow[];
+  total: number;
+}
+
+export interface WatchlistProfile {
+  group: WatchlistGroupRead | null;
+  tags: UserTagRead[];
+  focus_reason: string | null;
+  user_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StockCurrentState {
+  new_information_count: number;
+  pending_candidate_count: number;
+  open_task_count: number;
+  observation_count: number;
+  latest_review_status: string | null;
+  stale: boolean;
+}
+
+export interface OfficialInformation {
+  id: UUID;
+  title: string | null;
+  source_type: string;
+  status: string;
+  is_important: boolean;
+  created_at: string;
+  target_url: string;
+}
+
+export interface TimelineEntry {
+  event_type: string;
+  occurred_at: string;
+  title: string;
+  summary: string;
+  source_label: string;
+  target_url: string;
+  confidence: string | null;
+  data_completeness: string | null;
+  created_by: string;
+}
+
+export interface ReviewHistory {
+  review_id: UUID;
+  review_date: string;
+  status: string;
+  stale: boolean;
+  version_count: number;
+  latest_version: number | null;
+  target_url: string;
+}
+
+export interface StockResearchDossier {
+  identity: StockRead;
+  watchlist_profile: WatchlistProfile;
+  market_snapshot: StockMarketSnapshot;
+  current_state: StockCurrentState;
+  official_information: OfficialInformation[];
+  research_tasks: ResearchTask[];
+  timeline: TimelineEntry[];
+  review_history: ReviewHistory[];
+  data_boundaries: string[];
+}
+
 export interface MarketDataSyncPayload {
   source_code?: string;
   sync_mode?: "latest_completed_trade_day" | "selected_trade_date" | "optional_backfill";
@@ -642,7 +872,11 @@ export type NotificationEventType =
   | "user_daily_review.became_stale"
   | "information.high_priority_detected"
   | "information.verification_required"
-  | "ai_task.failed";
+  | "ai_task.failed"
+  | "research_task.created"
+  | "research_task.status_changed"
+  | "research_task.due"
+  | "observation_condition.due";
 
 export type InAppNotificationSeverity = "info" | "notice" | "important";
 export type InAppNotificationStatus = "unread" | "read" | "archived" | "expired";

@@ -212,6 +212,12 @@ export default function InformationPage() {
         >
           进入公告候选
         </Link>
+        <Link
+          href="/information/tasks"
+          className="focus-ring ml-0 mt-3 inline-flex h-9 items-center rounded-md border border-blue-300 bg-white px-3 text-sm font-semibold text-blue-800 hover:bg-blue-50 sm:ml-3 sm:mt-0"
+        >
+          进入研究事项
+        </Link>
       </section>
 
       {!user && !authLoading ? (

@@ -159,7 +159,8 @@ class BusinessEvent(UuidPrimaryKeyMixin, Base):
             "event_type IN ('user_daily_review.generated', 'user_daily_review.partial', "
             "'user_daily_review.failed', 'user_daily_review.became_stale', "
             "'information.high_priority_detected', 'information.verification_required', "
-            "'ai_task.failed')",
+            "'ai_task.failed', 'research_task.created', 'research_task.status_changed', "
+            "'research_task.due', 'observation_condition.due')",
             name="business_events_event_type_allowed",
         ),
         CheckConstraint("severity IN ('info', 'notice', 'important')", name="business_events_severity_allowed"),

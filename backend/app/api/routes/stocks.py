@@ -3,13 +3,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 
-from app.api.dependencies import CurrentUser, SessionDependency
+from app.api.dependencies import CurrentUser, SessionDependency, SettingsDependency
 from app.core.errors import AppError, ErrorCode
 from app.repositories.stocks import get_stock_by_id, list_stocks
 from app.schemas.common import DataEnvelope, Page
 from app.schemas.market_data import StockMarketSnapshotOut
 from app.schemas.stock import StockRead
+from app.schemas.workbench import StockResearchDossierOut
 from app.services.market_data import get_stock_market_snapshot
+from app.services.research_workbench import build_stock_research_dossier
 
 router = APIRouter()
 
@@ -87,6 +89,23 @@ async def get_stock_market_data_snapshot(
 ) -> dict[str, StockMarketSnapshotOut]:
     del current_user
     return {"data": await get_stock_market_snapshot(session, stock_id=stock_id)}
+
+
+@router.get("/{stock_id}/research-dossier", response_model=DataEnvelope[StockResearchDossierOut])
+async def get_stock_research_dossier(
+    stock_id: UUID,
+    session: SessionDependency,
+    current_user: CurrentUser,
+    settings: SettingsDependency,
+) -> dict[str, StockResearchDossierOut]:
+    return {
+        "data": await build_stock_research_dossier(
+            session,
+            user_id=current_user.id,
+            stock_id=stock_id,
+            settings=settings,
+        )
+    }
 
 
 @router.get("/{stock_id}", response_model=DataEnvelope[StockRead])

@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/status/EmptyState";
 import { ErrorState } from "@/components/status/ErrorState";
 import { LoadingSkeleton } from "@/components/status/LoadingSkeleton";
 import { humanizeApiError } from "@/lib/api/errors";
+import { createResearchTask } from "@/lib/api/research-tasks";
 import {
   archiveDailyReview,
   getDailyReview,
@@ -73,6 +74,8 @@ interface ReviewSnapshot {
   unassigned_information?: Array<Record<string, unknown>>;
   pending_relations?: Array<Record<string, unknown>>;
   global_verification_items?: ReviewClaim[];
+  research_tasks?: Array<Record<string, unknown>>;
+  observation_verification_results?: Array<Record<string, unknown>>;
   limitations?: string[];
   source_item_ids?: string[];
 }
@@ -85,6 +88,7 @@ export default function ReviewDetailPage() {
   const [review, setReview] = useState<DailyReviewDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [workingAction, setWorkingAction] = useState<"archive" | "regenerate" | null>(null);
+  const [adoptingSuggestion, setAdoptingSuggestion] = useState<string | null>(null);
   const [useAi, setUseAi] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -155,6 +159,38 @@ export default function ReviewDetailPage() {
       setError(humanizeApiError(caught));
     } finally {
       setWorkingAction(null);
+    }
+  }
+
+  async function handleAdoptSuggestion(kind: "verification" | "observation", title: string, index: number, sourceId?: string) {
+    const currentReview = review;
+    if (!currentReview?.current_version || adoptingSuggestion) {
+      return;
+    }
+    const currentVersion = currentReview.current_version;
+    const identifier = `review:${currentVersion.id}:${kind}:${sourceId ?? index}`;
+    setAdoptingSuggestion(identifier);
+    setError(null);
+    setSuccess(null);
+    try {
+      await createResearchTask({
+        task_type: kind,
+        title,
+        description: kind === "verification" ? `从每日复盘采纳的待核实事项：${title}` : `从每日复盘采纳的观察条件：${title}`,
+        priority: kind === "verification" ? "high" : "medium",
+        status: kind === "verification" ? "pending" : "monitoring",
+        source_type: "daily_review",
+        source_daily_review_id: currentReview.id,
+        source_daily_review_version_id: currentVersion.id,
+        current_evidence_summary: sourceId ? `来源信息或核实项：${sourceId}` : null,
+        suggestion_identifier: identifier
+      });
+      setSuccess("已采纳为研究事项；后续状态更新会进入下一次复盘材料。");
+      await refreshReview();
+    } catch (caught) {
+      setError(humanizeApiError(caught));
+    } finally {
+      setAdoptingSuggestion(null);
     }
   }
 
@@ -274,6 +310,12 @@ export default function ReviewDetailPage() {
 
       <RuleOverview overview={snapshot.overview ?? {}} />
       <AISummary aiResult={aiResult} fallback={review.current_version?.ai_narrative ?? snapshot.rule_summary} />
+      <AdoptSuggestions
+        snapshot={snapshot}
+        aiResult={aiResult}
+        adopting={adoptingSuggestion}
+        onAdopt={handleAdoptSuggestion}
+      />
       <SectionList title="自选股分组" sections={snapshot.watchlist_sections ?? []} empty="暂无确认归属到自选股的信息。" />
       <SectionList
         title="其他已确认股票"
@@ -302,7 +344,9 @@ function RuleOverview({ overview }: { overview: Record<string, unknown> }) {
     ["事实", overview.fact_count],
     ["观点", overview.opinion_count],
     ["传闻", overview.rumor_count],
-    ["待核实", overview.verification_item_count]
+    ["待核实", overview.verification_item_count],
+    ["研究事项", overview.open_research_task_count],
+    ["观察验证", overview.observation_verification_result_count]
   ];
 
   return (
@@ -323,6 +367,107 @@ function RuleOverview({ overview }: { overview: Record<string, unknown> }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function AdoptSuggestions({
+  snapshot,
+  aiResult,
+  adopting,
+  onAdopt
+}: {
+  snapshot: ReviewSnapshot;
+  aiResult: Record<string, unknown> | null;
+  adopting: string | null;
+  onAdopt: (kind: "verification" | "observation", title: string, index: number, sourceId?: string) => Promise<void>;
+}) {
+  const verificationItems = snapshot.global_verification_items ?? [];
+  const observations = stringArray(aiResult?.tomorrow_observation_focus);
+  const existingTasks = snapshot.research_tasks ?? [];
+  const observationResults = snapshot.observation_verification_results ?? [];
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <CheckCircle2 className="h-5 w-5 text-emerald-700" />
+        <h2 className="text-lg font-semibold text-slate-950">研究建议采纳</h2>
+        <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+          用户显式操作
+        </span>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        规则待核实项和 AI 后续观察只作为建议展示；点击采纳后才会创建研究事项，不会覆盖原始复盘版本。
+      </p>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <SuggestionGroup
+          title="待核实建议"
+          items={verificationItems.map((item) => ({
+            title: item.description ?? item.claim ?? "未命名待核实事项",
+            sourceId: item.verification_item_id ?? item.source_information_item_id
+          }))}
+          kind="verification"
+          adopting={adopting}
+          onAdopt={onAdopt}
+        />
+        <SuggestionGroup
+          title="观察条件建议"
+          items={observations.map((item) => ({ title: item }))}
+          kind="observation"
+          adopting={adopting}
+          onAdopt={onAdopt}
+        />
+      </div>
+      {existingTasks.length || observationResults.length ? (
+        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-semibold text-slate-950">本次复盘输入中的研究事项</p>
+          <p className="mt-1 text-sm text-slate-600">
+            打开事项 {existingTasks.length} 项；已验证观察结果 {observationResults.length} 项。
+          </p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function SuggestionGroup({
+  title,
+  items,
+  kind,
+  adopting,
+  onAdopt
+}: {
+  title: string;
+  items: Array<{ title: string; sourceId?: string }>;
+  kind: "verification" | "observation";
+  adopting: string | null;
+  onAdopt: (kind: "verification" | "observation", title: string, index: number, sourceId?: string) => Promise<void>;
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-sm font-semibold text-slate-900">{title}</p>
+      {items.length === 0 ? (
+        <p className="mt-2 text-sm text-slate-500">暂无建议。</p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          {items.map((item, index) => {
+            const key = `${kind}:${item.sourceId ?? index}`;
+            return (
+              <div key={key} className="rounded-md border border-slate-200 bg-white p-2 text-sm leading-6">
+                <p className="font-medium text-slate-900">{item.title}</p>
+                <button
+                  onClick={() => void onAdopt(kind, item.title, index, item.sourceId)}
+                  disabled={Boolean(adopting)}
+                  className="focus-ring mt-2 h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                  type="button"
+                >
+                  {adopting ? "处理中" : "采纳为研究事项"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

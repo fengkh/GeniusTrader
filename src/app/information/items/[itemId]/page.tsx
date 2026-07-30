@@ -496,6 +496,10 @@ function AnalysisView({ analysis }: { analysis: InformationAnalysis }) {
         <ClaimList title="风险" items={readArray(result, "risks")} field="description" warning />
         <ClaimList title="关键主张" items={readArray(result, "key_claims")} field="claim" />
       </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ClaimList title="建议研究事项（需用户手动采纳）" items={readArray(result, "suggested_research_tasks")} field="title" warning />
+        <ClaimList title="建议观察条件（需用户手动采纳）" items={readArray(result, "suggested_observation_conditions")} field="title" />
+      </div>
       <p className="text-xs text-slate-500">
         模型：{analysis.model_name ?? "未知"}；生成：{formatDateTime(analysis.created_at)}；Schema：
         {analysis.schema_version}

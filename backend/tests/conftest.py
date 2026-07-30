@@ -37,6 +37,8 @@ TRUNCATE_TABLES = [
     "notifications",
     "notification_preferences",
     "business_events",
+    "research_task_updates",
+    "research_tasks",
     "daily_review_items",
     "daily_review_versions",
     "daily_reviews",
