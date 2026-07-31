@@ -182,9 +182,25 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="MARKET_DATA_TUSHARE_ENABLED",
     )
+    market_data_akshare_enabled: bool = Field(
+        default=False,
+        validation_alias="MARKET_DATA_AKSHARE_ENABLED",
+    )
+    market_data_akshare_sina_enabled: bool = Field(
+        default=False,
+        validation_alias="MARKET_DATA_AKSHARE_SINA_ENABLED",
+    )
+    market_data_baostock_enabled: bool = Field(
+        default=False,
+        validation_alias="MARKET_DATA_BAOSTOCK_ENABLED",
+    )
     market_data_mock_enabled: bool = Field(
         default=False,
         validation_alias="MARKET_DATA_MOCK_ENABLED",
+    )
+    market_data_default_provider: str = Field(
+        default="BAOSTOCK",
+        validation_alias="MARKET_DATA_DEFAULT_PROVIDER",
     )
     market_data_tushare_token: str = Field(
         default="",
@@ -211,11 +227,11 @@ class Settings(BaseSettings):
         validation_alias="MARKET_DATA_BACKFILL_MAX_DAYS",
     )
     market_data_market_close_hour: int = Field(
-        default=15,
+        default=16,
         validation_alias="MARKET_DATA_MARKET_CLOSE_HOUR",
     )
     market_data_market_close_minute: int = Field(
-        default=30,
+        default=15,
         validation_alias="MARKET_DATA_MARKET_CLOSE_MINUTE",
     )
 

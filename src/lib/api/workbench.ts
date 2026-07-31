@@ -15,17 +15,34 @@ export async function getTodayOverview(businessDate?: string): Promise<TodayOver
 }
 
 export async function getWatchlistScanner(params: {
-  q?: string;
+  keyword?: string;
   group_id?: UUID | "";
   tag_id?: UUID | "";
-  sort?: "attention" | "name" | "last_information_at";
+  market_data_available?: boolean;
+  market_movement?: "up" | "down" | "unchanged";
+  exchange?: string;
+  sort?:
+    | "attention_score"
+    | "attention"
+    | "symbol"
+    | "name"
+    | "last_information_at"
+    | "pending_candidate_count"
+    | "open_task_count"
+    | "latest_review_date"
+    | "pct_change"
+    | "amount"
+    | "turnover_rate";
 } = {}): Promise<WatchlistScanner> {
   return apiRequest<WatchlistScanner>(
     `/watchlist/scanner${toQueryString({
-      q: params.q,
+      keyword: params.keyword,
       group_id: params.group_id,
       tag_id: params.tag_id,
-      sort: params.sort ?? "attention"
+      market_data_available: params.market_data_available,
+      market_movement: params.market_movement,
+      exchange: params.exchange,
+      sort: params.sort ?? "attention_score"
     })}`
   );
 }

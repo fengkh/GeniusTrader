@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/status/EmptyState";
 import { ErrorState } from "@/components/status/ErrorState";
 import { LoadingSkeleton } from "@/components/status/LoadingSkeleton";
 import { humanizeApiError } from "@/lib/api/errors";
-import type { TodayActionItem, TodayOverview } from "@/lib/api/types";
+import type { DecimalValue, TodayActionItem, TodayOverview } from "@/lib/api/types";
 import { getTodayOverview } from "@/lib/api/workbench";
 
 export default function TodayPage() {
@@ -99,9 +99,19 @@ export default function TodayPage() {
             <p className="text-xs font-semibold text-slate-500">1. 数据日期、来源状态和最后更新时间</p>
             <div className="mt-3 grid gap-3 md:grid-cols-4">
               <MetricCard label="业务日期" value={stats?.business_date ?? "暂无"} />
+              <MetricCard label="行情交易日" value={stats?.market_trade_date ?? "暂无"} />
               <MetricCard label="自选股" value={`${stats?.watchlist_count ?? 0}只`} />
               <MetricCard label="行情状态" value={marketStatusLabel(stats?.market_data_status)} />
               <MetricCard label="最新复盘" value={reviewStatusLabel(stats?.latest_review_status)} />
+              <MetricCard
+                label="行情覆盖"
+                value={`${stats?.market_data_available_count ?? 0}/${stats?.watchlist_count ?? 0}只`}
+              />
+              <MetricCard label="暂无行情" value={`${stats?.market_data_unavailable_count ?? 0}只`} />
+              <MetricCard
+                label="涨跌分布"
+                value={`涨${stats?.gainers_count ?? 0} / 跌${stats?.decliners_count ?? 0} / 平${stats?.unchanged_count ?? 0}`}
+              />
             </div>
             <p className="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm leading-6 text-blue-950">
               今日页只展示后端已聚合的用户私有数据。行情、公告、AI 分析和研究事项的失败会分区降级，不会让整页不可用。
@@ -133,7 +143,7 @@ export default function TodayPage() {
                   <Link
                     key={stock.stock_id}
                     href={`/watchlist/${stock.stock_id}`}
-                    className="focus-ring grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 hover:bg-white md:grid-cols-[1fr_100px_1.6fr]"
+                    className="focus-ring grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 hover:bg-white md:grid-cols-[1fr_120px_130px_1.6fr]"
                   >
                     <div>
                       <p className="font-semibold text-slate-950">{stock.name}</p>
@@ -142,6 +152,17 @@ export default function TodayPage() {
                     <div>
                       <p className="text-lg font-semibold text-slate-950">{stock.priority_score}</p>
                       <p className="text-xs text-slate-500">关注分</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">
+                        {stock.close !== null ? formatDecimal(stock.close) : "暂无"}
+                      </p>
+                      <p className={`text-xs font-semibold ${changeTone(stock.pct_change)}`}>
+                        {formatChange(stock.pct_change)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        {stock.source_code ? `${stock.source_code} / ${stock.trade_date ?? "暂无日期"}` : "暂无经授权的真实行情数据"}
+                      </p>
                     </div>
                     <p className="text-sm leading-6 text-slate-700">
                       {stock.priority_reasons.length ? stock.priority_reasons.join("；") : "暂无具体触发原因。"}
@@ -263,7 +284,7 @@ function marketStatusLabel(value?: string | null): string {
   if (value === "available") {
     return "可用";
   }
-  if (value === "partial" || value === "stale") {
+  if (value === "partial" || value === "stale" || value === "source_lag") {
     return "部分可用";
   }
   return "暂无可用行情";
@@ -278,6 +299,41 @@ function reviewStatusLabel(value?: string | null): string {
     stale: "需要更新"
   };
   return value ? labels[value] ?? value : "暂无";
+}
+
+function formatDecimal(value: DecimalValue): string {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  return numberValue.toFixed(2);
+}
+
+function formatChange(value: DecimalValue | null): string {
+  if (value === null) {
+    return "暂无涨跌";
+  }
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  const direction = numberValue > 0 ? "上涨" : numberValue < 0 ? "下跌" : "持平";
+  const prefix = numberValue > 0 ? "+" : "";
+  return `${prefix}${numberValue.toFixed(2)}% ${direction}`;
+}
+
+function changeTone(value: DecimalValue | null): string {
+  if (value === null) {
+    return "text-slate-500";
+  }
+  const numberValue = Number(value);
+  if (numberValue > 0) {
+    return "text-red-600";
+  }
+  if (numberValue < 0) {
+    return "text-emerald-700";
+  }
+  return "text-slate-600";
 }
 
 function actionTone(value: "info" | "notice" | "important"): string {

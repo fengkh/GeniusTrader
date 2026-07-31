@@ -63,9 +63,9 @@ export default function MarketDataSettingsPage() {
     setMessage(null);
     try {
       const run = await startMarketDataSync({
-        source_code: "TUSHARE_PRO",
+        source_code: "BAOSTOCK",
         sync_mode: "latest_completed_trade_day",
-        use_current_watchlist: false,
+        use_current_watchlist: true,
         dry_run: false
       });
       setMessage(`行情同步完成：${run.status}，收到 ${run.received_count} 条。`);

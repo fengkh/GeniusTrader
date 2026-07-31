@@ -33,6 +33,9 @@ def _production_settings(**overrides):
         "market_data_sync_enabled": False,
         "market_data_real_network_enabled": False,
         "market_data_tushare_enabled": False,
+        "market_data_akshare_enabled": False,
+        "market_data_akshare_sina_enabled": False,
+        "market_data_baostock_enabled": False,
         "market_data_mock_enabled": False,
         "announcement_bse_enabled": False,
         "security_master_baostock_enabled": False,
@@ -78,6 +81,22 @@ def test_production_release_gate_fails_unauthorized_market_provider():
     )
 
     assert "UNAUTHORIZED_MARKET_PROVIDER_ENABLED" in _codes(settings)
+
+
+def test_production_release_gate_blocks_free_market_providers():
+    settings = _production_settings(
+        market_data_provider_enabled=True,
+        market_data_real_network_enabled=True,
+        market_data_akshare_enabled=True,
+        market_data_akshare_sina_enabled=True,
+        market_data_baostock_enabled=True,
+    )
+
+    codes = _codes(settings)
+    assert "AKSHARE_EASTMONEY_ENABLED_IN_PRODUCTION" in codes
+    assert "AKSHARE_SINA_DAILY_ENABLED_IN_PRODUCTION" in codes
+    assert "BAOSTOCK_MARKET_DATA_ENABLED_IN_PRODUCTION" in codes
+    assert "UNAUTHORIZED_MARKET_PROVIDER_ENABLED" in codes
 
 
 def test_production_release_gate_allows_market_provider_closed_without_token():
@@ -129,6 +148,7 @@ async def test_market_data_provider_smoke_no_token_exits_3_without_leak(monkeypa
     assert code == 3
     assert "MARKET_DATA_PROVIDER_NOT_CONFIGURED" in output
     assert "not_configured" in output
+    assert "blocked_by_local_credential" in output
     assert "APP_ENCRYPTION_KEYS" not in output
 
 

@@ -107,11 +107,13 @@ class StockDailySnapshotOut(OrmModel):
 class StockMarketSnapshotOut(BaseModel):
     stock: StockRead
     snapshot: StockDailySnapshotOut | None
-    status: Literal["available", "stale", "partial", "unavailable"]
+    status: Literal["available", "stale", "source_lag", "partial", "unavailable"]
     latest_completed_trade_date: date | None
     source_code: str | None
     authorization_status: str | None
     production_enabled: bool
+    data_completeness: str | None = None
+    missing_fields: list[str] = Field(default_factory=list)
     message: str
     unit_notes: dict[str, str]
 
@@ -120,12 +122,14 @@ class WatchlistMarketSnapshotOut(BaseModel):
     watchlist_item_id: UUID
     stock: StockRead
     snapshot: StockDailySnapshotOut | None
-    status: Literal["available", "stale", "partial", "unavailable"]
+    status: Literal["available", "stale", "source_lag", "partial", "unavailable"]
+    data_completeness: str | None = None
+    missing_fields: list[str] = Field(default_factory=list)
     message: str
 
 
 class MarketDataSyncRequest(BaseModel):
-    source_code: str = Field(default="TUSHARE_PRO", min_length=1, max_length=80)
+    source_code: str = Field(default="BAOSTOCK", min_length=1, max_length=80)
     sync_mode: Literal["latest_completed_trade_day", "selected_trade_date", "optional_backfill"] = (
         "latest_completed_trade_day"
     )

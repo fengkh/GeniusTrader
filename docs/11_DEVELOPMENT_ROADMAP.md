@@ -384,3 +384,19 @@
 - 新增 `research_tasks`、`research_task_updates` 迁移和相关 API。
 - 更新今日、自选股、个股详情、信息中心、复盘详情和通知设置的前端真实 API 接入。
 - 后续仍需在真实行情授权、全市场复盘、估值、外部通知和生产部署验收后独立进入下一阶段。
+
+## 第九阶段：真实数据接入与日常使用闭环 V0.3
+
+- 在无真实行情凭证条件下先完成离线工程：Provider Smoke 边界、watchlist 范围同步、单位归一化、缺字段状态、工作台页面接入和测试覆盖。
+- 新增 `docs/29_REAL_DATA_DAILY_PILOT_V03.md` 与 `docs/templates/daily-pilot-report.example.md`。
+- 真实联网 Smoke 仅在用户本地安全配置 Token 后执行；不得通过聊天传递 Token。
+- 当前阶段不进入实时行情、分时、K 线、全市场复盘、估值、交易、荐股、自动调度或生产部署。
+- 下一步阻断项：Tushare 或替代 Provider 的授权状态、字段覆盖、SH/SZ/BJ 覆盖差异、生产展示和历史留存策略仍需产品负责人确认。
+## 2026-07-30 Stage 9 Provider Strategy Update
+
+- Stage 9 no longer treats a Tushare Token as the prerequisite for all real market-data validation.
+- Implement AKShare / Eastmoney as the local-development primary candidate for low-frequency daily snapshots.
+- Implement BaoStock as an explicit SH/SZ cross-check and backup development source; do not silently fallback from AKShare to BaoStock.
+- Keep all free providers unverified, non-official, and production-disabled until a separate authorization freeze.
+- Do not expand this stage into realtime, minute, tick, K-line charting, all-market sync, valuation, AI chat, trading, or production deployment work.
+- Current local result: AKShare dry-run for `600519.SH`, `300750.SZ`, `688981.SH`, and `920000.BJ` succeeded for `2026-07-29`; limited persistence remained blocked by repeated `network_error`, so page-level persisted snapshot validation stays P1 pending.

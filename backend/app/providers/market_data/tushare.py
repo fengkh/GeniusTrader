@@ -88,11 +88,18 @@ class TushareMarketDataProvider(MarketDataProvider):
             params=params,
             fields="ts_code,trade_date,open,high,low,close,pre_close,change,pct_chg,vol,amount",
         )
-        basic_raw = await self._post(
-            api_name="daily_basic",
-            params=params,
-            fields="ts_code,trade_date,turnover_rate,volume_ratio,total_mv,circ_mv,pe_ttm,pb",
-        )
+        errors: list[dict[str, str]] = []
+        try:
+            basic_raw = await self._post(
+                api_name="daily_basic",
+                params=params,
+                fields="ts_code,trade_date,turnover_rate,volume_ratio,total_mv,circ_mv,pe_ttm,pb",
+            )
+        except AppError as exc:
+            if exc.code != ErrorCode.MARKET_DATA_PERMISSION_DENIED:
+                raise
+            basic_raw = {"data": {"fields": [], "items": []}}
+            errors.append(provider_error(exc.code.value, "Tushare daily_basic 权限不足，保留 daily 行情字段。"))
         daily_fields, daily_items = self._extract_table(daily_raw)
         basic_fields, basic_items = self._extract_table(basic_raw)
         basic_by_symbol = {
@@ -116,17 +123,29 @@ class TushareMarketDataProvider(MarketDataProvider):
             basic = basic_by_symbol.get(symbol, {})
             merged = {**daily, **basic}
             records.append(self._normalize_record(symbol=symbol, raw=merged, fetched_at=fetched_at))
+            if len(records) >= query.max_records:
+                break
 
-        status = ProviderStatus.PASS if records else ProviderStatus.DATA_INSUFFICIENT
+        missing_symbol_count = max(0, len(symbols) - len({record.symbol for record in records}))
+        if not records:
+            status = ProviderStatus.DATA_INSUFFICIENT
+        elif errors or missing_symbol_count:
+            status = ProviderStatus.PARTIAL
+        else:
+            status = ProviderStatus.PASS
         result = MarketDataProviderResult(
             status=status,
             records=records,
-            errors=[] if records else [provider_error("NO_RECORDS", "Provider returned no usable rows")],
-            metrics={"raw_daily_count": len(daily_items), "raw_daily_basic_count": len(basic_items)},
+            errors=errors if records else [provider_error("NO_RECORDS", "Provider returned no usable rows")],
+            metrics={
+                "raw_daily_count": len(daily_items),
+                "raw_daily_basic_count": len(basic_items),
+                "missing_symbol_count": missing_symbol_count,
+            },
             provider_metadata={"source_code": self.source_code, "token": "[redacted]"},
             request_count=2,
-            success_count=2,
-            failure_count=0,
+            success_count=1 if errors else 2,
+            failure_count=missing_symbol_count + len(errors),
         )
         return with_redacted_metadata(result)
 

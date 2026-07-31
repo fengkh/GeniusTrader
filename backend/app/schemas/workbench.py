@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
@@ -13,6 +14,13 @@ from app.schemas.watchlist import UserTagRead, WatchlistGroupRead
 class TodayOverviewStats(BaseModel):
     business_date: date
     watchlist_count: int
+    market_trade_date: date | None = None
+    market_snapshot_count: int = 0
+    market_data_available_count: int = 0
+    market_data_unavailable_count: int = 0
+    gainers_count: int = 0
+    decliners_count: int = 0
+    unchanged_count: int = 0
     stocks_with_new_information: int
     new_announcement_candidate_count: int
     pending_announcement_candidate_count: int
@@ -35,6 +43,13 @@ class PriorityStockOut(BaseModel):
     open_task_count: int
     due_observation_count: int
     review_status: str | None
+    close: Decimal | None = None
+    pct_change: Decimal | None = None
+    amount: Decimal | None = None
+    turnover_rate: Decimal | None = None
+    trade_date: date | None = None
+    source_code: str | None = None
+    freshness_status: str | None = None
     latest_market_snapshot: WatchlistMarketSnapshotOut | None
 
 
@@ -81,6 +96,15 @@ class WatchlistScannerRowOut(BaseModel):
     tags: list[UserTagRead]
     focus_reason: str | None
     latest_market_snapshot: WatchlistMarketSnapshotOut | None
+    trade_date: date | None = None
+    close: Decimal | None = None
+    change: Decimal | None = None
+    pct_change: Decimal | None = None
+    volume: Decimal | None = None
+    amount: Decimal | None = None
+    turnover_rate: Decimal | None = None
+    source_code: str | None = None
+    freshness_status: str | None = None
     new_information_count: int
     official_announcement_count_7d: int
     pending_candidate_count: int

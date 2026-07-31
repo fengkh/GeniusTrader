@@ -59,3 +59,24 @@ def test_market_review_mock_route_is_closed_for_release():
     assert "SimulatedDataBadge" not in market_review_text
     assert "不展示 Mock 指数" in market_review_text
     assert "暂无经授权的真实全市场行情数据" in market_review_text
+
+
+def test_frontend_v03_daily_market_workflow_contracts_are_present():
+    today_text = (ROOT / "src" / "app" / "today" / "page.tsx").read_text(encoding="utf-8")
+    watchlist_text = (ROOT / "src" / "app" / "watchlist" / "page.tsx").read_text(encoding="utf-8")
+    detail_text = (ROOT / "src" / "app" / "watchlist" / "[stockId]" / "page.tsx").read_text(encoding="utf-8")
+    api_text = (ROOT / "src" / "lib" / "api" / "workbench.ts").read_text(encoding="utf-8")
+    types_text = (ROOT / "src" / "lib" / "api" / "types.ts").read_text(encoding="utf-8")
+
+    assert "market_trade_date" in today_text
+    assert "market_data_available_count" in today_text
+    assert "marketFilter" in watchlist_text
+    assert "market_movement" in watchlist_text
+    assert "sortKey" in watchlist_text
+    assert "missing_fields" in watchlist_text
+    assert "真实日级行情快照" in detail_text
+    assert "不展示分时、K 线、盘口、估值模型或 AI 推测数字" in detail_text
+    assert "keyword" in api_text
+    assert "market_data_available" in api_text
+    assert "pct_change" in types_text
+    assert "freshness_status" in types_text

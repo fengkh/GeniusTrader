@@ -1,10 +1,13 @@
 import json
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from sqlalchemy import func, select
 
+from app.core.time import utc_now
+from app.models.market_data import StockDailySnapshot
 from app.models.research import ResearchTask, ResearchTaskUpdate
 from app.models.review_notification import BusinessEvent
 from app.services.information import _parse_analysis_json
@@ -28,6 +31,47 @@ async def _add_watchlist_stock(client, db_session):
     )
     assert response.status_code == 201
     return stock
+
+
+async def _add_named_watchlist_stock(client, db_session, *, symbol: str, exchange: str, name: str):
+    stock = await seed_stock(db_session, symbol=symbol, exchange=exchange, name=name)
+    response = await client.post(
+        "/api/v1/watchlist",
+        json={"stock_id": str(stock.id), "attention_reason": f"track {symbol}"},
+    )
+    assert response.status_code == 201
+    return stock
+
+
+def _snapshot(stock_id, *, close: str, pct_change: str, amount: str | None, completeness: str = "complete") -> StockDailySnapshot:
+    fetched_at = utc_now()
+    return StockDailySnapshot(
+        stock_id=stock_id,
+        source_code="MOCK_MARKET_DATA",
+        trade_date=WORKBENCH_DATE,
+        open=Decimal(close) - Decimal("0.20"),
+        high=Decimal(close) + Decimal("0.50"),
+        low=Decimal(close) - Decimal("0.80"),
+        close=Decimal(close),
+        pre_close=Decimal(close) - Decimal("0.10"),
+        change=Decimal(close) - (Decimal(close) - Decimal("0.10")),
+        pct_change=Decimal(pct_change),
+        volume=Decimal("1000000"),
+        amount=Decimal(amount) if amount is not None else None,
+        turnover_rate=None if completeness == "partial" else Decimal("2.50"),
+        volume_ratio=None,
+        total_market_value=Decimal("10000000000"),
+        circulating_market_value=Decimal("8000000000"),
+        pe_ttm=None,
+        pb=None,
+        is_trading=True,
+        data_completeness=completeness,
+        source_updated_at=fetched_at,
+        fetched_at=fetched_at,
+        raw_metadata_hash=f"snapshot-{stock_id}-{close}",
+        limitations=[],
+        source_record_ref=f"test:{stock_id}",
+    )
 
 
 async def _manual_information(client, *, stock_id: str, source_type: str = "announcement") -> str:
@@ -159,6 +203,61 @@ async def test_today_overview_watchlist_scanner_and_stock_dossier(client, db_ses
     assert len(dossier_data["official_information"]) == 1
     assert len(dossier_data["research_tasks"]) == 2
     assert any(entry["event_type"] == "research_task.created" for entry in dossier_data["timeline"])
+
+
+@pytest.mark.asyncio
+async def test_real_daily_snapshot_enters_today_scanner_and_dossier_without_mock_numbers(client, db_session):
+    await _login_user(client, db_session, prefix="research_market")
+    up_stock = await _add_named_watchlist_stock(client, db_session, symbol="600519", exchange="SH", name="Alpha Daily")
+    down_stock = await _add_named_watchlist_stock(client, db_session, symbol="300750", exchange="SZ", name="Beta Daily")
+    empty_stock = await _add_named_watchlist_stock(client, db_session, symbol="688981", exchange="SH", name="Gamma Empty")
+    db_session.add_all(
+        [
+            _snapshot(up_stock.id, close="10.50", pct_change="5.26", amount="20000000"),
+            _snapshot(down_stock.id, close="18.80", pct_change="-1.05", amount=None, completeness="partial"),
+        ]
+    )
+    await db_session.commit()
+
+    today = await client.get("/api/v1/today/overview", params={"business_date": WORKBENCH_DATE.isoformat()})
+    assert today.status_code == 200
+    overview = today.json()["data"]["overview"]
+    assert overview["watchlist_count"] == 3
+    assert overview["market_trade_date"] == WORKBENCH_DATE.isoformat()
+    assert overview["market_snapshot_count"] == 2
+    assert overview["market_data_unavailable_count"] == 1
+    assert overview["gainers_count"] == 1
+    assert overview["decliners_count"] == 1
+    assert overview["market_data_status"] == "partial"
+    priority_by_symbol = {row["symbol"]: row for row in today.json()["data"]["priority_stocks"]}
+    assert priority_by_symbol["600519.SH"]["pct_change"] == "5.260000"
+    assert any("真实日级行情" in reason for reason in priority_by_symbol["600519.SH"]["priority_reasons"])
+
+    sorted_scanner = await client.get("/api/v1/watchlist/scanner", params={"sort": "pct_change"})
+    assert sorted_scanner.status_code == 200
+    sorted_rows = sorted_scanner.json()["data"]["items"]
+    assert [row["symbol"] for row in sorted_rows] == ["600519.SH", "300750.SZ", "688981.SH"]
+    assert sorted_rows[1]["freshness_status"] == "partial"
+    assert sorted_rows[1]["amount"] is None
+
+    up_only = await client.get("/api/v1/watchlist/scanner", params={"market_movement": "up"})
+    assert up_only.status_code == 200
+    assert [row["symbol"] for row in up_only.json()["data"]["items"]] == ["600519.SH"]
+
+    no_quote = await client.get("/api/v1/watchlist/scanner", params={"market_data_available": False})
+    assert no_quote.status_code == 200
+    assert [row["symbol"] for row in no_quote.json()["data"]["items"]] == ["688981.SH"]
+
+    dossier = await client.get(f"/api/v1/stocks/{down_stock.id}/research-dossier")
+    assert dossier.status_code == 200
+    market_snapshot = dossier.json()["data"]["market_snapshot"]
+    assert market_snapshot["status"] == "partial"
+    assert "amount" in market_snapshot["missing_fields"]
+    assert market_snapshot["snapshot"]["pct_change"] == "-1.050000"
+
+    empty_dossier = await client.get(f"/api/v1/stocks/{empty_stock.id}/research-dossier")
+    assert empty_dossier.status_code == 200
+    assert empty_dossier.json()["data"]["market_snapshot"]["status"] == "unavailable"
 
 
 @pytest.mark.asyncio

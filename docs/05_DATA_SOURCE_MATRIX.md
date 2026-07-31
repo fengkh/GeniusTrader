@@ -130,5 +130,30 @@
 
 - 生产首版允许上线的真实数据能力：本地证券主数据读取、用户自选股、CNINFO/SSE_DISCLOSURE 显式启用后的官方公告候选、用户手动信息、用户自带 AI、每日复盘和站内通知。
 - 生产默认关闭：`MARKET_DATA_PROVIDER_ENABLED`、`MARKET_DATA_SYNC_ENABLED`、`MARKET_DATA_REAL_NETWORK_ENABLED`、`MARKET_DATA_TUSHARE_ENABLED`、`MARKET_DATA_MOCK_ENABLED`、`ANNOUNCEMENT_BSE_ENABLED`。
+
+## 2026-07-31 免费行情分市场路由补充
+
+| source_code | 来源定位 | 授权状态 | 生产启用 | 使用范围 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `BAOSTOCK` | BaoStock A 股日线开发源 | `unverified` | `false` | `local_development`, `internal_testing` | 第九阶段 SH/SZ 五日试运行主路由；不是交易所官方行情、不是实时行情、不是商业授权来源。 |
+| `AKSHARE_SINA_DAILY` | AKShare 包装的新浪 A 股日线公开网页数据 | `unverified` | `false` | `local_development`, `internal_testing` | 第九阶段 BJ 低频样本候选路由；仅在真实 dry-run 成功后允许有限持久化，不声明生产覆盖。 |
+| `AKSHARE_EASTMONEY` | AKShare 包装的东方财富 A 股日线公开网页数据 | `unverified` | `false` | `local_development`, `internal_testing` | 降级为诊断和显式交叉验证来源；不再作为默认持久化路由。 |
+| `TUSHARE_PRO` | Tushare Pro 开发候选 | `unverified` | `false` | `local_development`, `internal_testing` | 保留为可选 Provider；缺 Token 不再阻塞第九阶段免费源验证。 |
+
+所有免费源都不得被写成官方交易所行情、实时行情、商业授权行情或交易建议来源。生产发布闸门必须继续拒绝任何未授权免费源和 Mock 行情。
 - 无授权行情时，用户界面显示“暂无经授权的真实行情数据。”，不得由 AI、Mock 或 0 值填充价格、涨跌幅、K 线、分时和量化指标。
-- BaoStock 只能作为 `BAOSTOCK_DEVELOPMENT_FALLBACK`，不得在生产环境自动运行，也不得被展示为官方交易所来源。
+- 第九阶段不再要求单个免费 Provider 同时覆盖 SH/SZ/BJ；页面允许不同股票显示不同 `source_code`。同一条快照不得混用多个来源字段，必须保存实际 `source_code`。
+- 当交易日历目标为 `2026-07-30` 而某 Provider 最新可用日期仍为 `2026-07-29` 时，应标记为 `source_lag`，不得把旧日期反向认定为最近完整交易日。
+- BaoStock 行情源和 6A 的 `BAOSTOCK_DEVELOPMENT_FALLBACK` 证券目录补充来源必须区分展示，二者都不得在生产环境自动运行，也不得被展示为官方交易所来源。
+
+2026-07-31 Checkpoint 9D 真实 Smoke 记录：`AKSHARE_EASTMONEY` 升级后仍返回脱敏 `ProxyError`，仅记录为 `diagnostic_unavailable`；`BAOSTOCK` 对 `600519.SH`、`300750.SZ`、`688981.SH` 的 `2026-07-30` dry-run 和有限持久化通过，重复持久化幂等；`AKSHARE_SINA_DAILY` 对 `920000.BJ` 的 `2026-07-30` dry-run、有限持久化和重复幂等通过。上述结果只支持本地五日试运行，不代表生产授权。
+
+## 2026-07-30 第九阶段 V0.3 数据源补充
+
+| 数据类别 | 阶段定位 | 当前允许保存 | 不允许行为 | 降级方案 | 待确认 |
+| --- | --- | --- | --- | --- | --- |
+| TUSHARE_PRO 日级行情快照 | 开发候选 Provider 的低频技术试点 | 归一化后的当前用户自选股日级快照、来源、交易日、获取时间、完整度、缺失字段、脱敏错误摘要 | 默认全市场同步、输出 Token、保存完整原始响应、写成生产授权、展示实时/分钟/盘口/分时/K 线能力 | 无 Token 标记 `blocked_by_local_credential` 或 `not_configured`；字段缺失显示 `partial` 和 `missing_fields` | 商业授权、展示权、缓存和历史留存、SH/SZ/BJ 字段覆盖 |
+| 自选股扫描器行情筛选 | 工作台读模型输入 | 已入库快照中的收盘价、涨跌幅、成交额、换手率、交易日和新鲜度状态 | 无快照按 0 参与排序、由前端猜单位、用 AI 补全缺失字段 | 无快照展示 unavailable；partial 仍显示已有字段和缺失项 | 排序权重和更多指标口径 |
+| 公告同步 dry-run | Provider 可达性和低频试点辅助 | 同步运行统计、脱敏 metrics、错误摘要 | 创建公告记录、候选、信息条目、AI 任务、BusinessEvent 或 Notification | 只记录 run 状态，用户可再执行正式同步 | Provider 可达后真实候选补验 |
+
+该补充不关闭 `OQ-01`。真实行情 Provider、授权状态、字段覆盖和生产展示仍需产品负责人确认。

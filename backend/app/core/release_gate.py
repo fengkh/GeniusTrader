@@ -198,6 +198,30 @@ def _production_blockers(settings: Settings) -> list[ReleaseCheckItem]:
         blockers.append(
             ReleaseCheckItem("MARKET_DATA_MOCK_ENABLED", "fail", "生产环境禁止启用 Mock 行情 Provider。")
         )
+    if settings.market_data_akshare_enabled:
+        blockers.append(
+            ReleaseCheckItem(
+                "AKSHARE_EASTMONEY_ENABLED_IN_PRODUCTION",
+                "fail",
+                "AKShare / Eastmoney is unverified and must stay disabled in production.",
+            )
+        )
+    if settings.market_data_akshare_sina_enabled:
+        blockers.append(
+            ReleaseCheckItem(
+                "AKSHARE_SINA_DAILY_ENABLED_IN_PRODUCTION",
+                "fail",
+                "AKShare / Sina daily is unverified and must stay disabled in production.",
+            )
+        )
+    if settings.market_data_baostock_enabled:
+        blockers.append(
+            ReleaseCheckItem(
+                "BAOSTOCK_MARKET_DATA_ENABLED_IN_PRODUCTION",
+                "fail",
+                "BaoStock market data is unverified and must stay disabled in production.",
+            )
+        )
     if _market_enabled(settings) and settings.market_data_tushare_authorization_status != "commercially_authorized":
         blockers.append(
             ReleaseCheckItem(
@@ -216,6 +240,9 @@ def _market_enabled(settings: Settings) -> bool:
             settings.market_data_sync_enabled,
             settings.market_data_real_network_enabled,
             settings.market_data_tushare_enabled,
+            settings.market_data_akshare_enabled,
+            settings.market_data_akshare_sina_enabled,
+            settings.market_data_baostock_enabled,
         ]
     )
 

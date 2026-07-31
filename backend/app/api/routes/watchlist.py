@@ -310,6 +310,7 @@ async def get_watchlist_scanner(
     has_observation: bool | None = None,
     review_stale: bool | None = None,
     market_data_available: bool | None = None,
+    market_movement: Annotated[str | None, Query(max_length=16)] = None,
     exchange: Annotated[str | None, Query(max_length=8)] = None,
     sort: Annotated[str, Query(max_length=40)] = "attention_score",
 ) -> dict[str, WatchlistScannerOut]:
@@ -327,6 +328,7 @@ async def get_watchlist_scanner(
             has_observation=has_observation,
             review_stale=review_stale,
             market_data_available=market_data_available,
+            market_movement=market_movement,
             exchange=exchange,
             sort=sort,
             settings=settings,

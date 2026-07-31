@@ -114,5 +114,33 @@ Provider 原始单位必须在 normalization 层统一转换，前端不得自�
 - 模块化研究工作台不得把证券主数据、自选股、公告或研究事项包装为真实行情；没有经授权真实行情快照时，今日页、自选股扫描器和个股研究档案均显示 `unavailable`。
 - `/today/overview`、`/watchlist/scanner` 和 `/stocks/{stock_id}/research-dossier` 可以在行情关闭状态下继续提供研究待办、官方信息、研究事项、观察条件和复盘状态。
 - 行情缺失不得阻塞公告候选审核、信息分析、研究事项创建、观察条件验证、每日复盘或站内通知。
+
+## 2026-07-30 免费行情双源验证修订
+
+第九阶段真实行情方案调整为：
+
+- `BAOSTOCK`：9D 起作为 SH/SZ 五日试运行主路由，仅低频日线快照，非官方、非实时、未商业授权。
+- `AKSHARE_SINA_DAILY`：9D 起作为 BJ 低频样本候选路由，真实 dry-run 成功后才允许有限持久化。
+- `AKSHARE_EASTMONEY`：降级为诊断和显式交叉验证来源，不再作为默认持久化路由。
+- `TUSHARE_PRO`：保留为可选 Provider，缺少 Token 不再阻塞免费行情验证。
+
+AKShare `stock_zh_a_hist` 字段标准化口径：`日期 -> trade_date`，`股票代码 -> provider_symbol`，`开盘/收盘/最高/最低 -> open/close/high/low`，`成交量 -> volume` 且原始单位为“手”、内部单位为“股”、乘数 100，`成交额 -> amount` 且原始和内部单位均为人民币元，`涨跌幅 -> pct_change`，`涨跌额 -> change`，`换手率 -> turnover_rate`。`total_market_value`、`circulating_market_value`、`pe_ttm`、`pb` 当前保持 null 并进入缺失字段，不抓取额外不稳定接口，不由 AI 补齐。
+
+2026-07-30 本地真实 Smoke 结果：AKShare dry-run 对 `600519.SH`、`300750.SZ`、`688981.SH`、`920000.BJ` 在 `2026-07-29` 返回 `pass`，四只股票均关联现有 `stock.id`，未创建股票。后续有限持久化连续返回 `network_error`，未产生 `AKSHARE_EASTMONEY` 快照；当时页面展示已入库真实快照仍为 P1 待补验。
+
+2026-07-31 Checkpoint 9C 修复：`market_data_provider_smoke --persist` 改为复用同一次 AKShare fetch/normalize/validate 结果，网络请求完成后才进入短数据库写入阶段，避免 persist 二次联网。新增脱敏阶段日志和最多三次网络重试。当天本地真实 dry-run 在 `stock_fetch` 阶段仍三次返回脱敏 `ProxyError`，单命令清空代理变量后未改变，因此 9C 当时的真实持久化和页面快照验收仍保持 P1 待补验。
+
+2026-07-31 Checkpoint 9D 收口：目标交易日按交易日历优先验证 `2026-07-30`；Provider 只返回 `2026-07-29` 时标记 `source_lag`，不得把旧日期称为最近完整交易日。`BAOSTOCK` 对 `600519.SH`、`300750.SZ`、`688981.SH` 的 dry-run、有限持久化和重复幂等通过；`AKSHARE_SINA_DAILY` 对 `920000.BJ` 的 dry-run、有限持久化和重复幂等通过；`AKSHARE_EASTMONEY` 升级后仍为脱敏 `ProxyError`，记录为诊断不可用。第九阶段可以进入 SH/SZ 五日试运行，BJ 可作为本地低频样本纳入试运行观察，但不得宣称沪深京生产覆盖。
 - AI 分析、每日复盘和研究事项不得生成、补全或覆盖价格、成交量、成交额、财务、估值、K 线、分时或涨跌幅数字。
-- 本阶段不重新打开真实 Provider 联网 Smoke，不新增行情图表、实时行情、全市场行情复盘、估值中心或生产行情展示。
+- 完成 9D 分市场低频真实 Smoke 后，本阶段仍不新增行情图表、实时行情、全市场行情复盘、估值中心或生产行情展示。
+
+## 十、第九阶段 V0.3 日常真实数据试点补充
+
+- 行情同步范围收窄为当前用户自选股或显式指定的既有 `stock_id` 列表；没有范围时不得默认同步全部 A 股证券目录。
+- Tushare 仍是开发候选 Provider。未检测到本地 `.local/market-data.env` Token 时，真实联网 Smoke 标记为 `blocked_by_local_credential`，不阻塞离线工程验收，也不得伪造联网成功。
+- 技术 Smoke 默认使用最近完整交易日和四只样本股：`600519.SH`、`300750.SZ`、`688981.SH`、`920000.BJ`；输出只允许包含脱敏状态、字段覆盖、单位说明、延迟和错误摘要，不输出 Token 或完整原始响应。
+- `/today`、`/watchlist` 和 `/watchlist/[stockId]` 可以展示已入库真实日级快照、缺失字段、覆盖数量、涨跌分布、来源和交易日；`partial` 表示已有部分快照字段但必须展示缺失项。
+- `/watchlist` 的行情筛选和排序只基于后端已入库日级快照；无快照不得按 `0` 价格或 `0%` 涨跌参与排序。
+- 个股详情真实快照区不展示分时、K 线、盘口、估值模型或 AI 推测数字；PE/PB 如来自 Provider 字段，只能作为原始快照字段展示，不得生成估值结论。
+- 公告同步 CLI 可以低频 dry-run，但 dry-run 不创建公告记录、候选、信息条目、AI 任务、BusinessEvent 或 Notification。
+- 日常试点报告只保存在 Git 忽略的 `tmp/pilot/`，模板见 `docs/templates/daily-pilot-report.example.md`。

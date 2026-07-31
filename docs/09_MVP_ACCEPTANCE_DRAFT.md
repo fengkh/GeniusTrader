@@ -207,3 +207,24 @@
 - AC-72：`python -m app.cli.market_data_provider_smoke` 缺少 Token 时退出码为 3，默认不写库；技术可达不代表生产授权。失败示例：无授权 Token 时仍持久化生产行情。
 - AC-73：生产 Smoke 脚本不得通过命令行接收密码或 Token，必须检查首页、健康检查、OpenAPI、登录页、公众注册关闭、未认证私有 API 拒绝、行情/证券状态不泄密、错误响应无栈信息和基础安全响应头。失败示例：Smoke 通过 CLI 参数传入管理员密码。
 - AC-74：`/market-review/[date]` 在生产发布收口中必须保持安全关闭，不展示 Mock 全市场复盘、指数宽度、估值区间、随机行情或 AI 生成行情数字；`/reviews` 不得提供跳转到旧 Mock 全市场复盘的入口。失败示例：私人测试版用户手输 URL 后看到模拟市场涨跌和估值区间。
+- AC-75：行情同步没有当前自选股范围或显式既有 `stock_id` 时必须拒绝，不得默认同步全市场。失败示例：管理员未指定范围时自动拉取全部 A 股目录。
+- AC-76：`market_data_provider_smoke` 默认样本应覆盖 `600519.SH`、`300750.SZ`、`688981.SH`、`920000.BJ`，输出字段覆盖、单位说明、交易日和脱敏错误摘要；不得输出 Token 或完整原始响应。失败示例：Smoke 日志包含 `MARKET_DATA_TUSHARE_TOKEN` 值。
+
+## 2026-07-31 第九阶段免费行情源验收补充
+
+- AC-77：Tushare Token 缺失时真实联网 Smoke 标记为 `blocked_by_local_credential` 或等价未配置状态，不得伪造成功，也不得阻断离线工程验收。失败示例：无 Token 时写入伪造快照。
+- AC-78：免费行情五日试运行采用显式分市场路由：SH/SZ 使用 `BAOSTOCK`，BJ 使用 `AKSHARE_SINA_DAILY`，`AKSHARE_EASTMONEY` 仅用于诊断或显式交叉验证。失败示例：AKShare Eastmoney 失败后静默 fallback 到 BaoStock 并仍标记为 `AKSHARE_EASTMONEY`。
+- AC-79：一条 `stock_daily_snapshot` 只能保存一个实际 `source_code`，不得混合多个 Provider 字段；同一业务日期下不同股票可以来自不同 `source_code`。失败示例：`close` 来自 BaoStock、`turnover_rate` 来自 Sina，但只记录一个来源。
+- AC-80：`BAOSTOCK` 标准化必须包含 OHLC、`pre_close`、`change`、`pct_change`、`volume`、`amount` 和 `turnover_rate`，`turnover_rate` 内部保持百分数数值；估值和市值缺失保持 null。失败示例：BaoStock `turn=0.0125` 被展示为 `0.0125%` 而非 `1.25%`。
+- AC-81：`AKSHARE_SINA_DAILY` BJ 标准化必须使用前一实际交易日生成 `pre_close`，程序计算 `change` 和 `pct_change`，`volume` 与 `amount` 按真实返回单位保存，缺失估值字段保持 null。失败示例：没有前一交易日数据时用 0 补 `pre_close`。
+- AC-82：交易日历目标日不得被 Provider 滞后结果覆盖；当目标为 `2026-07-30` 而 Provider 最新可用日为 `2026-07-29` 时必须标记 `source_lag`。失败示例：页面显示“最近完整交易日 2026-07-29”来掩盖来源滞后。
+- AC-83：`market_data_provider_smoke --persist` 必须复用同一次 fetch/normalize/validate 的内存结果，之后才开启短数据库事务写入，不得在 persist 阶段重新解析交易日或二次调用 Provider。失败示例：dry-run 成功后 persist 又重新联网并因第二次请求失败。
+- AC-84：免费源网络错误仅对 `ProxyError`、`ConnectTimeout`、`ReadTimeout` 和 `ConnectionError` 进行有限重试；`source_changed`、`parse_error` 和 `data_insufficient` 不重试。阶段日志只能输出 Provider、股票、交易日、阶段、尝试次数、耗时和脱敏错误类型，不输出 URL、代理、Header 或原始响应。
+- AC-85：AKShare、BaoStock、Sina 和 Tushare 均必须保持 `authorization_status=unverified`、`production_enabled=false`；生产环境启用免费源必须被 release gate 阻止。失败示例：免费源在 production 中显示为官方或已授权。
+- AC-86：真实低频 Smoke 不得输出完整原始响应、Cookie、Header、数据库密码、AI Key、Session 或 CSRF。BaoStock SDK 自带登录输出必须被抑制。失败示例：日志包含第三方完整返回正文。
+- AC-87：`/today` 必须展示当前用户自选股的行情交易日、快照覆盖、暂无行情、上涨/下跌/持平分布和实际来源提示；行情失败不得影响公告、研究事项、复盘和通知模块。失败示例：一个股票行情缺失导致今日页 500。
+- AC-88：`/watchlist` 必须支持基于后端日级快照的上涨、下跌、有行情、无行情筛选，以及涨跌幅、成交额、换手率排序；列表行必须展示实际 `source_code` 和 `trade_date`，无快照不得按 0 值参与排序。失败示例：无行情股票被显示为 0.00 元并排在列表顶部。
+- AC-89：`/watchlist/[stockId]` 必须在股票身份后展示真实日级行情快照区，并列出完整度、新鲜度、来源、交易日和缺失字段；不得展示分时、K 线、盘口、估值模型或 AI 推测数字。失败示例：无真实 K 线数据时仍展示 Mock K 线。
+- AC-90：`partial` 和 `source_lag` 行情快照必须继续展示已有字段和缺失/滞后原因，不得被归类为完全无行情，也不得用 0 补缺失字段。失败示例：成交额缺失时隐藏收盘价和涨跌幅。
+- AC-91：行情有限持久化不得创建股票，不得自动 AI，不得创建 ResearchTask、BusinessEvent 或 Notification。失败示例：行情同步后出现新的复盘通知。
+- AC-92：公告同步 dry-run 不得创建公告记录、候选、信息条目、AI 任务、BusinessEvent 或 Notification。失败示例：dry-run 后用户候选收件箱出现新候选。

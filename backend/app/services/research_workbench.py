@@ -1,6 +1,7 @@
 import uuid
 from collections import defaultdict
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -68,6 +69,7 @@ async def build_today_overview(
     stock_ids = [item.stock_id for item in watchlist_items]
     market_status = await get_market_data_status(session, settings=settings)
     snapshots = {row.watchlist_item_id: row for row in await get_watchlist_market_snapshots(session, user_id=user_id)}
+    market_summary = _market_summary(list(snapshots.values()))
 
     new_info_counts = await _information_counts_by_stock(
         session,
@@ -101,6 +103,12 @@ async def build_today_overview(
     priority_stocks: list[PriorityStockOut] = []
     for item in watchlist_items:
         counts = task_counts.get(item.stock_id, {})
+        market_row = snapshots.get(item.id)
+        quote_fields = _market_quote_fields(market_row)
+        priority_quote_fields = {
+            key: quote_fields[key]
+            for key in ["close", "pct_change", "amount", "turnover_rate", "trade_date", "source_code", "freshness_status"]
+        }
         reasons: list[str] = []
         score = 0
         if official_counts.get(item.stock_id, 0):
@@ -124,6 +132,9 @@ async def build_today_overview(
         if new_info_counts.get(item.stock_id, 0):
             score += 1
             reasons.append(f"今日新增信息 {new_info_counts[item.stock_id]} 条")
+        if quote_fields["pct_change"] is not None and abs(quote_fields["pct_change"]) >= Decimal("5"):
+            score += 1
+            reasons.append(f"真实日级行情涨跌幅达到 5% 阈值：{quote_fields['pct_change']}%")
         priority_stocks.append(
             PriorityStockOut(
                 stock_id=item.stock_id,
@@ -136,7 +147,8 @@ async def build_today_overview(
                 open_task_count=counts.get("open", 0),
                 due_observation_count=counts.get("due_observation", 0),
                 review_status=review.status if review else None,
-                latest_market_snapshot=snapshots.get(item.id),
+                latest_market_snapshot=market_row,
+                **priority_quote_fields,
             )
         )
     priority_stocks.sort(key=lambda row: (-row.priority_score, row.symbol))
@@ -187,6 +199,13 @@ async def build_today_overview(
     overview = TodayOverviewStats(
         business_date=business_date,
         watchlist_count=len(watchlist_items),
+        market_trade_date=market_summary["market_trade_date"],
+        market_snapshot_count=market_summary["market_snapshot_count"],
+        market_data_available_count=market_summary["market_data_available_count"],
+        market_data_unavailable_count=market_summary["market_data_unavailable_count"],
+        gainers_count=market_summary["gainers_count"],
+        decliners_count=market_summary["decliners_count"],
+        unchanged_count=market_summary["unchanged_count"],
         stocks_with_new_information=sum(1 for value in new_info_counts.values() if value > 0),
         new_announcement_candidate_count=new_candidate_count,
         pending_announcement_candidate_count=sum(pending_candidate_counts.values()),
@@ -195,7 +214,7 @@ async def build_today_overview(
         due_observation_count=due_observation_count,
         information_needing_analysis_count=info_needing_analysis_count,
         latest_review_status=review.status if review else None,
-        market_data_status="available" if market_status.latest_trade_date else "unavailable",
+        market_data_status=_market_data_status(market_summary, market_status.latest_trade_date),
     )
     return TodayOverviewOut(
         overview=overview,
@@ -227,6 +246,7 @@ async def build_watchlist_scanner(
     has_observation: bool | None,
     review_stale: bool | None,
     market_data_available: bool | None,
+    market_movement: str | None,
     exchange: str | None,
     sort: str,
     settings: Settings,
@@ -283,6 +303,7 @@ async def build_watchlist_scanner(
     for item in items:
         counts = task_counts.get(item.stock_id, {})
         snapshot = snapshots.get(item.id)
+        quote_fields = _market_quote_fields(snapshot)
         reasons: list[str] = []
         score = 0
         if new_info.get(item.stock_id, 0):
@@ -314,6 +335,7 @@ async def build_watchlist_scanner(
                 tags=tags.get(item.id, []),
                 focus_reason=item.attention_reason,
                 latest_market_snapshot=snapshot,
+                **quote_fields,
                 new_information_count=new_info.get(item.stock_id, 0),
                 official_announcement_count_7d=official_7d.get(item.stock_id, 0),
                 pending_candidate_count=pending_candidates.get(item.stock_id, 0),
@@ -337,6 +359,7 @@ async def build_watchlist_scanner(
         has_observation=has_observation,
         review_stale=review_stale,
         market_data_available=market_data_available,
+        market_movement=market_movement,
     )
     rows.sort(key=_scanner_sort_key(sort))
     return WatchlistScannerOut(items=rows, total=len(rows))
@@ -788,6 +811,7 @@ def _filter_scanner_rows(
     has_observation: bool | None,
     review_stale: bool | None,
     market_data_available: bool | None,
+    market_movement: str | None,
 ) -> list[WatchlistScannerRowOut]:
     result = rows
     if has_new_information is not None:
@@ -810,14 +834,22 @@ def _filter_scanner_rows(
         result = [
             row
             for row in result
-            if bool(row.latest_market_snapshot and row.latest_market_snapshot.status == "available")
+            if bool(row.latest_market_snapshot and row.latest_market_snapshot.snapshot is not None)
             == market_data_available
         ]
+    if market_movement:
+        if market_movement == "up":
+            result = [row for row in result if row.pct_change is not None and row.pct_change > 0]
+        elif market_movement == "down":
+            result = [row for row in result if row.pct_change is not None and row.pct_change < 0]
+        elif market_movement == "unchanged":
+            result = [row for row in result if row.pct_change is not None and row.pct_change == 0]
     return result
 
 
 def _scanner_sort_key(sort: str):
     def by_value(row: WatchlistScannerRowOut):
+        normalized_sort = "attention_score" if sort == "attention" else sort
         if sort == "last_information_at":
             return (row.last_information_at is None, row.last_information_at or datetime.min.replace(tzinfo=UTC))
         if sort == "pending_candidate_count":
@@ -826,11 +858,11 @@ def _scanner_sort_key(sort: str):
             return (-(row.open_verification_count + row.open_observation_count), row.symbol)
         if sort == "latest_review_date":
             return (row.latest_review_date is None, row.latest_review_date or date.min, row.symbol)
-        if sort == "symbol":
+        if normalized_sort in {"symbol", "name"}:
             return (row.symbol,)
-        if sort == "pct_change":
-            snapshot = row.latest_market_snapshot.snapshot if row.latest_market_snapshot else None
-            return (snapshot is None or snapshot.pct_change is None, str(snapshot.pct_change if snapshot else ""), row.symbol)
+        if normalized_sort in {"pct_change", "amount", "turnover_rate"}:
+            value = getattr(row, normalized_sort)
+            return (value is None, -(value or Decimal("0")), row.symbol)
         return (-row.attention_score, row.symbol)
 
     return by_value
@@ -1095,6 +1127,59 @@ def _analysis_summary(value: dict[str, Any]) -> str:
     if isinstance(facts, list):
         return f"结构化事实 {len(facts)} 条"
     return "结构化分析已保存"
+
+
+def _market_summary(rows: list) -> dict[str, Any]:
+    rows_with_snapshot = [row for row in rows if row.snapshot is not None]
+    unavailable_count = len(rows) - len(rows_with_snapshot)
+    pct_values = [row.snapshot.pct_change for row in rows_with_snapshot if row.snapshot and row.snapshot.pct_change is not None]
+    trade_dates = [row.snapshot.trade_date for row in rows_with_snapshot if row.snapshot]
+    partial_or_stale_count = sum(1 for row in rows_with_snapshot if row.status in {"partial", "stale", "source_lag"})
+    return {
+        "market_trade_date": max(trade_dates) if trade_dates else None,
+        "market_snapshot_count": len(rows_with_snapshot),
+        "market_data_available_count": len(rows_with_snapshot),
+        "market_data_unavailable_count": unavailable_count,
+        "gainers_count": sum(1 for value in pct_values if value > 0),
+        "decliners_count": sum(1 for value in pct_values if value < 0),
+        "unchanged_count": sum(1 for value in pct_values if value == 0),
+        "partial_or_stale_count": partial_or_stale_count,
+    }
+
+
+def _market_data_status(summary: dict[str, Any], latest_trade_date: date | None) -> str:
+    if not latest_trade_date or summary["market_snapshot_count"] == 0:
+        return "unavailable"
+    if summary["market_data_unavailable_count"] > 0 or summary["partial_or_stale_count"] > 0:
+        return "partial"
+    return "available"
+
+
+def _market_quote_fields(row) -> dict[str, Any]:
+    snapshot = row.snapshot if row else None
+    if snapshot is None:
+        return {
+            "close": None,
+            "pct_change": None,
+            "amount": None,
+            "turnover_rate": None,
+            "trade_date": None,
+            "source_code": None,
+            "freshness_status": row.status if row else "unavailable",
+            "change": None,
+            "volume": None,
+        }
+    return {
+        "close": snapshot.close,
+        "pct_change": snapshot.pct_change,
+        "amount": snapshot.amount,
+        "turnover_rate": snapshot.turnover_rate,
+        "trade_date": snapshot.trade_date,
+        "source_code": snapshot.source_code,
+        "freshness_status": row.status,
+        "change": snapshot.change,
+        "volume": snapshot.volume,
+    }
 
 
 def _business_today(settings: Settings) -> date:

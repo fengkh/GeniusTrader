@@ -1,5 +1,13 @@
 # GeniusTrader
 
+## Phase 9 Scope Note
+
+Phase 9 starts the real-data daily workflow V0.3. It connects user-private watchlists, existing announcement/AI/review loops, and authorized daily market snapshots in a low-frequency operational path. Market sync is limited to the current watchlist or explicit existing stock IDs; it must not default to the full A-share market. Without a local authorized Provider credential, real Tushare smoke remains `blocked_by_local_credential` and the app must continue to show clear unavailable or partial states instead of Mock, zero, or AI-generated market numbers.
+
+2026-07-31 update: Tushare Token is no longer a Stage 9 blocker. The five-day local trial routes low-frequency daily snapshots by market: `BAOSTOCK` for SH/SZ samples and `AKSHARE_SINA_DAILY` for BJ samples. `AKSHARE_EASTMONEY` is downgraded to diagnostic and explicit cross-check use. All free sources remain `authorization_status=unverified`, `production_enabled=false`, `is_official=false`, and limited to `local_development` and `internal_testing`; they must not be described as exchange-official, realtime, commercially authorized, production-authorized, or investment-advice sources.
+
+See `docs/29_REAL_DATA_DAILY_PILOT_V03.md` for the detailed scope and `docs/templates/daily-pilot-report.example.md` for local pilot reports.
+
 ## Phase 8 Scope Note
 
 Phase 8 adds the modular watchlist research workbench V0.2. It introduces user-private `research_tasks` and `research_task_updates`, `/today/overview`, `/watchlist/scanner`, `/stocks/{stock_id}/research-dossier`, and `/information/tasks`. AI can suggest research tasks and observation conditions, but only an explicit user action creates or updates tasks. This phase does not add AI chat, conversation threads, trading advice, real Provider networking, automatic scheduling, or production deployment changes.

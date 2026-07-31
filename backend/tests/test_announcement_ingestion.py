@@ -363,6 +363,36 @@ async def test_sync_creates_shared_records_private_candidates_and_no_side_effect
     assert detail.json()["data"]["match_evidence"]["matched_symbol"] == "600519.SH"
 
 
+async def test_announcement_sync_dry_run_records_provider_result_without_candidates(client: AsyncClient, db_session, monkeypatch):
+    user = await _login_user(client, db_session, prefix="ann_dry")
+    await _add_watchlist_stock(client, db_session)
+    _enable_flags(monkeypatch)
+    await _enable_source(db_session)
+    _patch_provider(monkeypatch, FakeAnnouncementProvider(records=[_record(provider_id="dry-1")]))
+
+    run = await announcement_service.start_announcement_sync_run(
+        db_session,
+        user_id=user.id,
+        source_code="CNINFO",
+        date_from=date.today(),
+        date_to=date.today(),
+        stock_ids=[],
+        use_current_watchlist=True,
+        settings=get_settings(),
+        request_id="dry-run-test",
+        dry_run=True,
+        max_records=1,
+    )
+
+    assert run.status == "complete"
+    assert run.record_count == 1
+    assert run.candidate_count == 0
+    assert run.created_record_count == 0
+    assert run.metrics["dry_run"] is True
+    assert (await db_session.execute(select(func.count()).select_from(AnnouncementRecord))).scalar_one() == 0
+    assert (await db_session.execute(select(func.count()).select_from(UserAnnouncementCandidate))).scalar_one() == 0
+
+
 async def test_deduplication_and_user_candidate_isolation(client: AsyncClient, db_session, monkeypatch):
     user_a = await _login_user(client, db_session, prefix="ann_a")
     stock = await _add_watchlist_stock(client, db_session)

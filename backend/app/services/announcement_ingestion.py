@@ -98,6 +98,8 @@ async def start_announcement_sync_run(
     use_current_watchlist: bool,
     settings: Settings,
     request_id: str | None,
+    dry_run: bool = False,
+    max_records: int | None = None,
 ) -> ProviderSyncRun:
     source = await _get_external_source_or_404(session, source_code=source_code)
     _ensure_sync_allowed(source, settings)
@@ -163,7 +165,7 @@ async def start_announcement_sync_run(
         date_to=date_to,
         symbols=requested_symbols,
         cursor=None,
-        max_records=settings.announcement_max_records_per_run,
+        max_records=_effective_max_records(settings, max_records=max_records),
     )
     try:
         result = await provider.list_announcements(query)
@@ -207,14 +209,22 @@ async def start_announcement_sync_run(
         )
         await session.commit()
         raise AppError(ErrorCode.ANNOUNCEMENT_SYNC_FAILED, "公告同步失败", status_code=502) from exc
-    counts = await _persist_provider_result(
-        session,
-        user_id=user_id,
-        source=source,
-        run=run,
-        records=result.records,
-        watchlist=watchlist,
-    )
+    if dry_run:
+        counts = {
+            "candidate_count": 0,
+            "created_record_count": 0,
+            "updated_record_count": 0,
+            "duplicate_record_count": 0,
+        }
+    else:
+        counts = await _persist_provider_result(
+            session,
+            user_id=user_id,
+            source=source,
+            run=run,
+            records=result.records,
+            watchlist=watchlist,
+        )
     run.status = _run_status_from_provider_status(result.status)
     run.request_count = result.request_count
     run.success_count = result.success_count
@@ -224,7 +234,7 @@ async def start_announcement_sync_run(
     run.created_record_count = counts["created_record_count"]
     run.updated_record_count = counts["updated_record_count"]
     run.duplicate_record_count = counts["duplicate_record_count"]
-    run.metrics = result.metrics
+    run.metrics = {**result.metrics, "dry_run": dry_run}
     run.provider_metadata = result.provider_metadata
     run.completed_at = utc_now()
     if result.errors:
@@ -630,6 +640,12 @@ def _validate_date_range(date_from: date, date_to: date, settings: Settings) -> 
     earliest_allowed = date.today() - timedelta(days=max(settings.announcement_sync_lookback_days, 1))
     if date_from < earliest_allowed:
         raise AppError(ErrorCode.ANNOUNCEMENT_SYNC_LIMIT_EXCEEDED, "公告同步范围超过配置的最近日期窗口", status_code=422)
+
+
+def _effective_max_records(settings: Settings, *, max_records: int | None) -> int:
+    if max_records is None:
+        return settings.announcement_max_records_per_run
+    return max(1, min(max_records, settings.announcement_max_records_per_run))
 
 
 async def _ensure_no_running_sync(session: AsyncSession, *, user_id: uuid.UUID) -> None:

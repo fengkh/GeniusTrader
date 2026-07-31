@@ -26,7 +26,7 @@ export async function startMarketDataSync(
   return apiRequest<MarketDataSyncRun>("/admin/market-data/sync", {
     method: "POST",
     body: JSON.stringify({
-      source_code: payload.source_code ?? "TUSHARE_PRO",
+      source_code: payload.source_code ?? "BAOSTOCK",
       sync_mode: payload.sync_mode ?? "latest_completed_trade_day",
       trade_date: payload.trade_date ?? null,
       lookback_days: payload.lookback_days ?? 1,

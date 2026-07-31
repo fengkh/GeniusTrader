@@ -17,7 +17,7 @@
 
 CLI 必须支持明确退出码、结构化摘要日志、`job_run_id` 或对应运行记录 ID、错误码和脱敏输出。没有真实行情 Token 时，`sync_market_data` 应返回非零退出码和 `MARKET_DATA_PROVIDER_NOT_CONFIGURED`，不得产生部分行情、不得破坏历史数据。
 
-`market_data_provider_smoke` 默认不写数据库，最多请求 2 只股票和 1 个交易日。无 Token 时退出码为 3；输出不得包含 Token。即使技术可达，也必须继续显示“技术可达不代表生产授权”。
+`market_data_provider_smoke` 默认不写数据库，默认最多请求 4 只样本股票和 1 个最近完整交易日。无 Token 时退出码为 3；输出不得包含 Token。即使技术可达，也必须继续显示“技术可达不代表生产授权”。
 
 ## 二、任务边界
 

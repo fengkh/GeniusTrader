@@ -41,6 +41,25 @@ UNIT_NOTES = {
     "trade_date": "Asia/Shanghai 交易日",
 }
 
+MARKET_SNAPSHOT_FIELDS = [
+    "close",
+    "pre_close",
+    "change",
+    "pct_change",
+    "open",
+    "high",
+    "low",
+    "volume",
+    "amount",
+    "turnover_rate",
+    "total_market_value",
+    "circulating_market_value",
+    "pe_ttm",
+    "pb",
+]
+
+REAL_MARKET_SOURCE_CODES = {"AKSHARE_EASTMONEY", "AKSHARE_SINA_DAILY", "BAOSTOCK", "TUSHARE_PRO"}
+
 
 async def get_market_data_status(session: AsyncSession, *, settings: Settings) -> MarketDataStatusOut:
     await ensure_default_market_data_sources(session)
@@ -70,7 +89,7 @@ async def get_market_data_status(session: AsyncSession, *, settings: Settings) -
         production_authorization_pending=any(
             source.authorization_status != "commercially_authorized" or not source.production_enabled
             for source in sources
-            if source.source_code == "TUSHARE_PRO"
+            if source.source_code in REAL_MARKET_SOURCE_CODES
         ),
         user_notice="开发验证来源，尚未确认公开展示授权",
         data_gaps=data_gaps,
@@ -97,6 +116,8 @@ async def get_stock_market_snapshot(
         source_code=snapshot.source_code if snapshot else None,
         authorization_status=source.authorization_status if source else None,
         production_enabled=bool(source.production_enabled) if source else False,
+        data_completeness=snapshot.data_completeness if snapshot else None,
+        missing_fields=missing_fields_for_snapshot(snapshot),
         message=snapshot_message(status),
         unit_notes=UNIT_NOTES,
     )
@@ -130,6 +151,8 @@ async def get_watchlist_market_snapshots(
             stock=StockRead.model_validate(item.stock),
             snapshot=snapshots.get(item.stock_id),
             status=snapshot_status(snapshots.get(item.stock_id), latest_trade_date=latest_trade_date),
+            data_completeness=snapshots[item.stock_id].data_completeness if snapshots.get(item.stock_id) else None,
+            missing_fields=missing_fields_for_snapshot(snapshots.get(item.stock_id)),
             message=snapshot_message(snapshot_status(snapshots.get(item.stock_id), latest_trade_date=latest_trade_date)),
         )
         for item in items
@@ -172,6 +195,7 @@ async def start_market_data_sync(
     trigger_type: str,
     settings: Settings,
     request_id: str | None,
+    max_symbols: int | None = None,
 ) -> MarketDataSyncRun:
     normalized_source_code = normalize_market_data_source_code(source_code)
     await ensure_default_market_data_sources(session)
@@ -196,7 +220,7 @@ async def start_market_data_sync(
         session,
         user_id=admin_user.id if admin_user and use_current_watchlist else None,
         stock_ids=stock_ids,
-        max_symbols=settings.market_data_max_symbols_per_run,
+        max_symbols=_effective_max_symbols(settings, max_symbols=max_symbols),
     )
     if not stocks:
         raise AppError(ErrorCode.VALIDATION_ERROR, "没有可同步的已存在股票", status_code=422)
@@ -319,6 +343,7 @@ async def start_market_data_sync(
 
 
 async def ensure_default_market_data_sources(session: AsyncSession) -> None:
+    await _ensure_free_market_data_sources(session)
     existing = (
         await session.execute(select(MarketDataSource).where(MarketDataSource.source_code == "TUSHARE_PRO"))
     ).scalar_one_or_none()
@@ -338,6 +363,75 @@ async def ensure_default_market_data_sources(session: AsyncSession) -> None:
         )
     )
     await session.commit()
+
+
+async def _ensure_free_market_data_sources(session: AsyncSession) -> None:
+    defaults = [
+        {
+            "source_code": "AKSHARE_EASTMONEY",
+            "display_name": "AKShare / Eastmoney A-share Daily",
+            "source_type": "third_party_data_service",
+            "authorization_status": "unverified",
+            "usage_scope": ["local_development", "internal_testing"],
+            "production_enabled": False,
+            "capabilities": ["daily_snapshot", "trade_calendar"],
+            "limitations": [
+                "AKShare wraps Eastmoney public web data; not official, realtime, or production-authorized.",
+                "Diagnostic and explicit cross-check use only; not the default persistence route.",
+            ],
+        },
+        {
+            "source_code": "AKSHARE_SINA_DAILY",
+            "display_name": "AKShare / Sina BJ Daily",
+            "source_type": "third_party_data_service",
+            "authorization_status": "unverified",
+            "usage_scope": ["local_development", "internal_testing"],
+            "production_enabled": False,
+            "capabilities": ["daily_snapshot", "trade_calendar"],
+            "limitations": [
+                "Explicit BJ low-frequency local trial candidate only.",
+                "Not official, realtime, or production-authorized.",
+            ],
+        },
+        {
+            "source_code": "BAOSTOCK",
+            "display_name": "BaoStock A-share Daily",
+            "source_type": "third_party_data_service",
+            "authorization_status": "unverified",
+            "usage_scope": ["local_development", "internal_testing"],
+            "production_enabled": False,
+            "capabilities": ["daily_snapshot", "trade_calendar", "cross_check"],
+            "limitations": [
+                "Explicit SH/SZ five-day local trial route.",
+                "BJ coverage is unsupported by this adapter.",
+            ],
+        },
+    ]
+    existing = {
+        source.source_code: source
+        for source in (
+            await session.execute(
+                select(MarketDataSource).where(
+                    MarketDataSource.source_code.in_([item["source_code"] for item in defaults])
+                )
+            )
+        )
+        .scalars()
+        .all()
+    }
+    changed = False
+    for item in defaults:
+        source = existing.get(item["source_code"])
+        if source is None:
+            session.add(MarketDataSource(last_health_status="unknown", **item))
+            changed = True
+            continue
+        for key, value in item.items():
+            if getattr(source, key) != value:
+                setattr(source, key, value)
+                changed = True
+    if changed:
+        await session.commit()
 
 
 async def selected_stocks(
@@ -380,18 +474,7 @@ async def selected_stocks(
             .all()
         )
         return rows
-    return list(
-        (
-            await session.execute(
-                select(Stock)
-                .where(Stock.market == "A_SHARE", Stock.is_searchable.is_(True))
-                .order_by(Stock.symbol.asc())
-                .limit(max_symbols)
-            )
-        )
-        .scalars()
-        .all()
-    )
+    return []
 
 
 async def resolve_trade_date(
@@ -439,11 +522,13 @@ async def persist_market_data_records(
 ) -> Counter:
     counts: Counter = Counter({"created": 0, "updated": 0, "unchanged": 0, "failed": 0})
     stock_by_symbol = {stock.symbol: stock for stock in stocks}
+    seen_symbols: set[str] = set()
     for record in records:
         stock = stock_by_symbol.get(record.symbol)
         if not stock:
             counts["failed"] += 1
             continue
+        seen_symbols.add(record.symbol)
         existing = (
             await session.execute(
                 select(StockDailySnapshot).where(
@@ -460,6 +545,7 @@ async def persist_market_data_records(
         before = snapshot_fingerprint(existing)
         apply_record(existing, record)
         counts["updated" if before != snapshot_fingerprint(existing) else "unchanged"] += 1
+    counts["failed"] += len(set(stock_by_symbol) - seen_symbols)
     return counts
 
 
@@ -557,7 +643,7 @@ def snapshot_status(
     if snapshot.data_completeness in {"partial", "insufficient"}:
         return "partial"
     if latest_trade_date and snapshot.trade_date < latest_trade_date:
-        return "stale"
+        return "source_lag"
     return "available"
 
 
@@ -565,10 +651,17 @@ def snapshot_message(status: str) -> str:
     messages = {
         "available": "已显示最近可用真实日级行情快照。",
         "stale": "该股票行情快照早于最近完整交易日，请关注数据过期状态。",
+        "source_lag": "该数据源最新可用日期早于市场交易日历目标，较市场交易日滞后。",
         "partial": "该股票行情字段部分缺失，页面只展示已获得字段。",
         "unavailable": "暂无经授权的真实行情数据。",
     }
     return messages.get(status, "暂无经授权的真实行情数据。")
+
+
+def missing_fields_for_snapshot(snapshot: StockDailySnapshot | None) -> list[str]:
+    if snapshot is None:
+        return MARKET_SNAPSHOT_FIELDS.copy()
+    return [field for field in MARKET_SNAPSHOT_FIELDS if getattr(snapshot, field) is None]
 
 
 def snapshot_from_record(*, stock_id, record: DailyMarketSnapshotRecord) -> StockDailySnapshot:
@@ -657,6 +750,10 @@ def snapshot_fingerprint(snapshot: StockDailySnapshot) -> tuple:
 def _ensure_sync_allowed(source_code: str, settings: Settings) -> None:
     if not settings.market_data_sync_enabled:
         raise AppError(ErrorCode.MARKET_DATA_FEATURE_DISABLED, "行情同步功能未启用", status_code=403)
+    if source_code in REAL_MARKET_SOURCE_CODES and not settings.market_data_provider_enabled:
+        raise AppError(ErrorCode.MARKET_DATA_PROVIDER_NOT_CONFIGURED, "行情 Provider 总开关未启用", status_code=503)
+    if source_code in {"AKSHARE_EASTMONEY", "AKSHARE_SINA_DAILY", "BAOSTOCK"} and settings.is_production:
+        raise AppError(ErrorCode.MARKET_DATA_PERMISSION_DENIED, "免费开发行情源禁止在生产环境启用", status_code=403)
     if source_code == "TUSHARE_PRO" and settings.is_production:
         if settings.market_data_tushare_authorization_status != "commercially_authorized":
             raise AppError(ErrorCode.MARKET_DATA_PERMISSION_DENIED, "Tushare 尚未确认生产授权", status_code=403)
@@ -664,6 +761,12 @@ def _ensure_sync_allowed(source_code: str, settings: Settings) -> None:
         raise AppError(ErrorCode.MARKET_DATA_PROVIDER_NOT_CONFIGURED, "Tushare Token 未配置", status_code=503)
     if source_code != "MOCK_MARKET_DATA" and not settings.market_data_real_network_enabled:
         raise AppError(ErrorCode.MARKET_DATA_REAL_NETWORK_DISABLED, "行情真实网络同步未启用", status_code=403)
+
+
+def _effective_max_symbols(settings: Settings, *, max_symbols: int | None) -> int:
+    if max_symbols is None:
+        return settings.market_data_max_symbols_per_run
+    return max(1, min(max_symbols, settings.market_data_max_symbols_per_run))
 
 
 def _status_from_error(code: ErrorCode) -> str:

@@ -47,6 +47,18 @@ import {
 
 const ALL = "__all__";
 
+type MarketFilter = "all" | "up" | "down" | "has_quote" | "no_quote";
+type ScannerSort =
+  | "attention_score"
+  | "symbol"
+  | "last_information_at"
+  | "pending_candidate_count"
+  | "open_task_count"
+  | "latest_review_date"
+  | "pct_change"
+  | "amount"
+  | "turnover_rate";
+
 const boardLabels: Record<string, string> = {
   main_board: "主板",
   star_board: "科创板",
@@ -84,6 +96,8 @@ export default function WatchlistPage() {
   const [tagId, setTagId] = useState(ALL);
   const [exchange, setExchange] = useState(ALL);
   const [board, setBoard] = useState(ALL);
+  const [marketFilter, setMarketFilter] = useState<MarketFilter>("all");
+  const [sortKey, setSortKey] = useState<ScannerSort>("attention_score");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -104,7 +118,17 @@ export default function WatchlistPage() {
         listWatchlistTags(),
         getSecurityMasterStatus(),
         getWatchlistMarketSnapshots(),
-        getWatchlistScanner()
+        getWatchlistScanner({
+          keyword: query.trim() || undefined,
+          group_id: groupId === ALL ? undefined : groupId,
+          tag_id: tagId === ALL ? undefined : tagId,
+          exchange: exchange === ALL ? undefined : exchange,
+          market_data_available:
+            marketFilter === "has_quote" ? true : marketFilter === "no_quote" ? false : undefined,
+          market_movement:
+            marketFilter === "up" ? "up" : marketFilter === "down" ? "down" : undefined,
+          sort: sortKey
+        })
       ]);
       setItems(watchlistPage.items);
       setScannerRows(scanner.items);
@@ -117,7 +141,7 @@ export default function WatchlistPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [exchange, groupId, marketFilter, query, sortKey, tagId, user]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -139,6 +163,8 @@ export default function WatchlistPage() {
   );
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
+    const scannerIds = new Set(scannerRows.map((row) => row.watchlist_item_id));
+    const scannerOrder = new Map(scannerRows.map((row, index) => [row.watchlist_item_id, index]));
     return items.filter((item) => {
       const stock = item.stock;
       const matchesQuery =
@@ -152,9 +178,10 @@ export default function WatchlistPage() {
       const matchesTag = tagId === ALL || item.tags.some((tag) => tag.id === tagId);
       const matchesExchange = exchange === ALL || stock.exchange === exchange;
       const matchesBoard = board === ALL || stock.board === board;
-      return matchesQuery && matchesGroup && matchesTag && matchesExchange && matchesBoard;
-    });
-  }, [board, exchange, groupId, items, query, tagId]);
+      const matchesScanner = scannerIds.has(item.id);
+      return matchesQuery && matchesGroup && matchesTag && matchesExchange && matchesBoard && matchesScanner;
+    }).sort((left, right) => (scannerOrder.get(left.id) ?? 9999) - (scannerOrder.get(right.id) ?? 9999));
+  }, [board, exchange, groupId, items, query, scannerRows, tagId]);
   const scannerByItemId = useMemo(
     () => Object.fromEntries(scannerRows.map((row) => [row.watchlist_item_id, row])),
     [scannerRows]
@@ -237,7 +264,7 @@ export default function WatchlistPage() {
       {!loading && !authLoading ? (
         <>
           <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm lg:p-4">
-            <div className="grid gap-3 lg:grid-cols-[1.3fr_150px_150px_150px_150px_auto] lg:items-end">
+            <div className="grid gap-3 lg:grid-cols-[1.3fr_140px_140px_130px_130px_130px_150px_auto] lg:items-end">
               <label className="block">
                 <span className="text-xs font-semibold text-slate-500">搜索</span>
                 <span className="relative mt-1 block">
@@ -282,6 +309,23 @@ export default function WatchlistPage() {
                   </option>
                 ))}
               </FilterSelect>
+              <FilterSelect label="行情" value={marketFilter} onChange={(value) => setMarketFilter(value as MarketFilter)}>
+                <option value="all">全部行情</option>
+                <option value="up">上涨</option>
+                <option value="down">下跌</option>
+                <option value="has_quote">有行情</option>
+                <option value="no_quote">无行情</option>
+              </FilterSelect>
+              <FilterSelect label="排序" value={sortKey} onChange={(value) => setSortKey(value as ScannerSort)}>
+                <option value="attention_score">关注分</option>
+                <option value="pct_change">涨跌幅</option>
+                <option value="amount">成交额</option>
+                <option value="turnover_rate">换手率</option>
+                <option value="pending_candidate_count">公告候选</option>
+                <option value="open_task_count">打开事项</option>
+                <option value="last_information_at">最新信息</option>
+                <option value="symbol">股票代码</option>
+              </FilterSelect>
               <button
                 onClick={() => {
                   setQuery("");
@@ -289,6 +333,8 @@ export default function WatchlistPage() {
                   setTagId(ALL);
                   setExchange(ALL);
                   setBoard(ALL);
+                  setMarketFilter("all");
+                  setSortKey("attention_score");
                 }}
                 className="focus-ring h-9 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 type="button"
@@ -297,7 +343,7 @@ export default function WatchlistPage() {
               </button>
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              当前显示 {filteredItems.length} / {items.length} 只；扫描器按公告候选、待分析信息、研究事项和复盘 stale 状态计算关注分，不生成行情数字。
+              当前显示 {filteredItems.length} / {items.length} 只；行情筛选只使用后端已入库的真实日级快照，无行情不按 0 参与排序。
             </p>
           </section>
 
@@ -503,13 +549,20 @@ function MobileWatchlistList({
             </div>
             <div className="flex min-w-0 flex-col items-end justify-between">
               <div className="text-right">
-                <p className="text-sm font-semibold text-slate-950">{snapshot?.close ? formatDecimal(snapshot.close) : "暂无"}</p>
+                <p className="text-sm font-semibold text-slate-950">{hasValue(snapshot?.close) ? formatDecimal(snapshot.close) : "暂无"}</p>
                 <p className={`text-xs font-semibold ${changeTone(snapshot?.pct_change ?? null)}`}>
                   {formatChange(snapshot?.pct_change ?? null)}
                 </p>
+                <p className="max-w-24 truncate text-[10px] text-slate-500">
+                  {snapshot ? `${snapshot.source_code} / ${snapshot.trade_date}` : "暂无授权行情"}
+                </p>
               </div>
               <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${marketStatusTone(market?.status)}`}>
-                {scanner ? `关注 ${scanner.attention_score}` : marketStatusLabel(market?.status)}
+                {market?.status && market.status !== "available"
+                  ? marketStatusLabel(market.status)
+                  : scanner
+                    ? `关注 ${scanner.attention_score}`
+                    : marketStatusLabel(market?.status)}
               </span>
             </div>
           </Link>
@@ -536,9 +589,13 @@ function MarketPriceCell({ market }: { market: WatchlistMarketSnapshot | undefin
   const snapshot = market?.snapshot;
   return (
     <div className="text-sm leading-5">
-      <p className="font-semibold text-slate-950">{snapshot?.close ? formatDecimal(snapshot.close) : "暂无"}</p>
+      <p className="font-semibold text-slate-950">{hasValue(snapshot?.close) ? formatDecimal(snapshot.close) : "暂无"}</p>
       <p className={`text-xs font-semibold ${changeTone(snapshot?.pct_change ?? null)}`}>
         {formatChange(snapshot?.pct_change ?? null)}
+      </p>
+      <p className="text-xs text-slate-500">
+        额 {hasValue(snapshot?.amount) ? formatCompactNumber(snapshot.amount) : "暂无"} / 换手{" "}
+        {hasValue(snapshot?.turnover_rate) ? `${formatDecimal(snapshot.turnover_rate)}%` : "暂无"}
       </p>
     </div>
   );
@@ -551,6 +608,9 @@ function MarketStatusCell({ market }: { market: WatchlistMarketSnapshot | undefi
       <p className="mt-1">
         {market?.snapshot ? `${market.snapshot.source_code} / ${market.snapshot.trade_date}` : "暂无经授权的真实行情数据。"}
       </p>
+      {market?.missing_fields.length ? (
+        <p className="mt-1 truncate text-amber-700">缺字段：{market.missing_fields.slice(0, 3).join("、")}</p>
+      ) : null}
     </div>
   );
 }
@@ -1076,6 +1136,9 @@ function marketStatusLabel(value: string | undefined): string {
   if (value === "stale") {
     return "数据过期";
   }
+  if (value === "source_lag") {
+    return "来源滞后";
+  }
   if (value === "partial") {
     return "部分缺失";
   }
@@ -1097,7 +1160,7 @@ function marketStatusPillTone(value: string | undefined): "slate" | "emerald" | 
   if (value === "available") {
     return "emerald";
   }
-  if (value === "stale" || value === "partial") {
+  if (value === "stale" || value === "source_lag" || value === "partial") {
     return "amber";
   }
   return "slate";
@@ -1107,7 +1170,7 @@ function marketStatusTone(value: string | undefined): string {
   if (value === "available") {
     return "border-emerald-200 bg-emerald-50 text-emerald-800";
   }
-  if (value === "stale" || value === "partial") {
+  if (value === "stale" || value === "source_lag" || value === "partial") {
     return "border-amber-200 bg-amber-50 text-amber-800";
   }
   return "border-slate-200 bg-slate-50 text-slate-700";
@@ -1119,6 +1182,24 @@ function formatDecimal(value: DecimalValue): string {
     return String(value);
   }
   return numberValue.toFixed(2);
+}
+
+function formatCompactNumber(value: DecimalValue): string {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  if (Math.abs(numberValue) >= 100000000) {
+    return `${(numberValue / 100000000).toFixed(2)}亿`;
+  }
+  if (Math.abs(numberValue) >= 10000) {
+    return `${(numberValue / 10000).toFixed(2)}万`;
+  }
+  return numberValue.toFixed(2);
+}
+
+function hasValue(value: DecimalValue | null | undefined): value is DecimalValue {
+  return value !== null && value !== undefined;
 }
 
 function formatChange(value: DecimalValue | null): string {

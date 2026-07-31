@@ -24,6 +24,7 @@ import type {
   DecimalValue,
   ResearchTask,
   StockDailySnapshot,
+  StockMarketSnapshot,
   StockResearchDossier,
   TimelineEntry
 } from "@/lib/api/types";
@@ -109,7 +110,7 @@ export default function StockDetailPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:min-w-[560px]">
-            <IdentityStat label="最新价" value={snapshot?.close ? formatDecimal(snapshot.close) : "暂无"} />
+            <IdentityStat label="最新价" value={hasValue(snapshot?.close) ? formatDecimal(snapshot.close) : "暂无"} />
             <IdentityStat label="涨跌幅" value={formatChange(snapshot?.pct_change ?? null)} tone={changeTone(snapshot?.pct_change ?? null)} />
             <IdentityStat label="待办" value={`${dossier.current_state.open_task_count}项`} />
             <IdentityStat label="观察条件" value={`${dossier.current_state.observation_count}项`} />
@@ -123,7 +124,12 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<BookOpenText className="h-5 w-5 text-emerald-700" />} title="2. 用户关注逻辑" />
+        <SectionTitle icon={<BarChart3 className="h-5 w-5 text-blue-700" />} title="2. 真实日级行情快照" />
+        <MarketSnapshotSection market={dossier.market_snapshot} snapshot={snapshot} />
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <SectionTitle icon={<BookOpenText className="h-5 w-5 text-emerald-700" />} title="3. 用户关注逻辑" />
         <div className="mt-4 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
           <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
             {dossier.watchlist_profile.focus_reason || "当前用户尚未填写关注原因。"}
@@ -139,7 +145,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<BarChart3 className="h-5 w-5 text-blue-700" />} title="3. 当前研究状态" />
+        <SectionTitle icon={<ListTodo className="h-5 w-5 text-blue-700" />} title="4. 当前研究状态" />
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Metric label="新增信息" value={`${dossier.current_state.new_information_count}条`} />
           <Metric label="公告候选" value={`${dossier.current_state.pending_candidate_count}条`} />
@@ -150,7 +156,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<FileText className="h-5 w-5 text-blue-700" />} title="4. 官方信息与公告候选" />
+        <SectionTitle icon={<FileText className="h-5 w-5 text-blue-700" />} title="5. 官方信息与公告候选" />
         {dossier.official_information.length === 0 ? (
           <EmptyBlock title="暂无官方信息" description="尚未导入或确认与该股票相关的公告、资讯或公告候选。" />
         ) : (
@@ -173,7 +179,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<ListTodo className="h-5 w-5 text-amber-700" />} title="5. 研究事项与观察条件" />
+        <SectionTitle icon={<ListTodo className="h-5 w-5 text-amber-700" />} title="6. 研究事项与观察条件" />
         {dossier.research_tasks.length === 0 ? (
           <EmptyBlock title="暂无研究事项" description="可在任务中心创建，或从 AI 分析和复盘建议中显式采纳。" />
         ) : (
@@ -192,7 +198,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<Clock3 className="h-5 w-5 text-slate-700" />} title="6. 研究时间线" />
+        <SectionTitle icon={<Clock3 className="h-5 w-5 text-slate-700" />} title="7. 研究时间线" />
         {dossier.timeline.length === 0 ? (
           <EmptyBlock title="暂无时间线" description="信息、公告、复盘和研究事项更新后会进入该股票时间线。" />
         ) : (
@@ -205,7 +211,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<CheckSquare className="h-5 w-5 text-blue-700" />} title="7. 历史复盘" />
+        <SectionTitle icon={<CheckSquare className="h-5 w-5 text-blue-700" />} title="8. 历史复盘" />
         {dossier.review_history.length === 0 ? (
           <EmptyBlock title="暂无复盘历史" description="生成每日复盘后，与该股票相关的版本会展示在这里。" />
         ) : (
@@ -227,7 +233,7 @@ export default function StockDetailPage() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <SectionTitle icon={<NotebookPen className="h-5 w-5 text-emerald-700" />} title="8. 数据边界" />
+        <SectionTitle icon={<NotebookPen className="h-5 w-5 text-emerald-700" />} title="9. 数据边界" />
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm leading-6 text-slate-600">
           {dossier.data_boundaries.map((item) => (
             <li key={item}>{item}</li>
@@ -243,6 +249,50 @@ function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
     <div className="flex items-center gap-2">
       {icon}
       <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+    </div>
+  );
+}
+
+function MarketSnapshotSection({
+  market,
+  snapshot
+}: {
+  market: StockMarketSnapshot;
+  snapshot: StockDailySnapshot | null;
+}) {
+  return (
+    <div className="mt-4 space-y-3">
+      <div className={`rounded-md border p-3 text-sm leading-6 ${marketStatusTone(market.status)}`}>
+        {market.message} 本区只展示单日程序入库快照，不展示分时、K 线、盘口、估值模型或 AI 推测数字。
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SnapshotMetric label="交易日" value={snapshot?.trade_date ?? "暂无"} />
+        <SnapshotMetric label="来源" value={snapshot?.source_code ?? "暂无"} />
+        <SnapshotMetric label="收盘价" value={hasValue(snapshot?.close) ? formatDecimal(snapshot.close) : "暂无"} />
+        <SnapshotMetric label="昨收" value={hasValue(snapshot?.pre_close) ? formatDecimal(snapshot.pre_close) : "暂无"} />
+        <SnapshotMetric label="涨跌额" value={hasValue(snapshot?.change) ? formatDecimal(snapshot.change) : "暂无"} />
+        <SnapshotMetric label="涨跌幅" value={formatChange(snapshot?.pct_change ?? null)} tone={changeTone(snapshot?.pct_change ?? null)} />
+        <SnapshotMetric label="开盘" value={hasValue(snapshot?.open) ? formatDecimal(snapshot.open) : "暂无"} />
+        <SnapshotMetric
+          label="最高 / 最低"
+          value={`${hasValue(snapshot?.high) ? formatDecimal(snapshot.high) : "暂无"} / ${hasValue(snapshot?.low) ? formatDecimal(snapshot.low) : "暂无"}`}
+        />
+        <SnapshotMetric label="成交量" value={hasValue(snapshot?.volume) ? formatCompactNumber(snapshot.volume) : "暂无"} />
+        <SnapshotMetric label="成交额" value={hasValue(snapshot?.amount) ? formatCompactNumber(snapshot.amount) : "暂无"} />
+        <SnapshotMetric label="换手率" value={hasValue(snapshot?.turnover_rate) ? `${formatDecimal(snapshot.turnover_rate)}%` : "暂无"} />
+        <SnapshotMetric label="总市值" value={hasValue(snapshot?.total_market_value) ? formatCompactNumber(snapshot.total_market_value) : "暂无"} />
+        <SnapshotMetric label="流通市值" value={hasValue(snapshot?.circulating_market_value) ? formatCompactNumber(snapshot.circulating_market_value) : "暂无"} />
+        <SnapshotMetric label="PE TTM" value={hasValue(snapshot?.pe_ttm) ? formatDecimal(snapshot.pe_ttm) : "暂无"} />
+        <SnapshotMetric label="PB" value={hasValue(snapshot?.pb) ? formatDecimal(snapshot.pb) : "暂无"} />
+        <SnapshotMetric label="更新时间" value={formatTime(snapshot?.source_updated_at ?? snapshot?.fetched_at ?? null) ?? "暂无"} />
+      </div>
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+        <p>
+          完整度：{market.data_completeness ?? snapshot?.data_completeness ?? "暂无"}；新鲜度：
+          {marketStatusLabel(market.status)}；最近完整交易日：{market.latest_completed_trade_date ?? "暂无"}。
+        </p>
+        <p className="mt-1">缺失字段：{market.missing_fields.length ? market.missing_fields.join("、") : "无"}。</p>
+      </div>
     </div>
   );
 }
@@ -303,6 +353,15 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
       <p className="text-xs font-semibold text-slate-500">{label}</p>
       <p className="mt-1 text-sm font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function SnapshotMetric({ label, value, tone = "text-slate-950" }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className={`mt-1 text-sm font-semibold ${tone}`}>{value}</p>
     </div>
   );
 }
@@ -376,10 +435,21 @@ function marketStatusTone(value: string): string {
   if (value === "available") {
     return "border-emerald-200 bg-emerald-50 text-emerald-900";
   }
-  if (value === "partial" || value === "stale") {
+  if (value === "partial" || value === "stale" || value === "source_lag") {
     return "border-amber-200 bg-amber-50 text-amber-900";
   }
   return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function marketStatusLabel(value: string): string {
+  const labels: Record<string, string> = {
+    available: "可用",
+    partial: "部分可用",
+    source_lag: "来源滞后",
+    stale: "过期",
+    unavailable: "不可用"
+  };
+  return labels[value] ?? value;
 }
 
 function reviewStatusLabel(value: string | null): string {
@@ -415,6 +485,21 @@ function formatDecimal(value: DecimalValue): string {
   return numberValue.toFixed(2);
 }
 
+function formatCompactNumber(value: DecimalValue): string {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  const absValue = Math.abs(numberValue);
+  if (absValue >= 100000000) {
+    return `${(numberValue / 100000000).toFixed(2)}亿`;
+  }
+  if (absValue >= 10000) {
+    return `${(numberValue / 10000).toFixed(2)}万`;
+  }
+  return numberValue.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+}
+
 function formatChange(value: DecimalValue | null): string {
   if (value === null) {
     return "暂无涨跌";
@@ -440,6 +525,10 @@ function changeTone(value: DecimalValue | null): string {
     return "text-emerald-700";
   }
   return "text-slate-600";
+}
+
+function hasValue(value: DecimalValue | null | undefined): value is DecimalValue {
+  return value !== null && value !== undefined && String(value) !== "";
 }
 
 function formatTime(value: string | null): string | null {

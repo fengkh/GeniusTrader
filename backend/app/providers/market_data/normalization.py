@@ -55,13 +55,24 @@ def decimal_times(value: Any, multiplier: str) -> Decimal | None:
     return parsed * Decimal(multiplier) if parsed is not None else None
 
 
+def ratio_or_percent_to_percent_number(value: Any) -> Decimal | None:
+    parsed = decimal_or_none(value)
+    if parsed is None:
+        return None
+    if parsed != 0 and abs(parsed) < Decimal("0.1"):
+        return parsed * Decimal("100")
+    return parsed
+
+
 def parse_trade_date(value: Any) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
     if isinstance(value, date) and not isinstance(value, datetime):
         return value
     raw = str(value or "").strip()
     if not raw:
         return None
-    for fmt in ("%Y%m%d", "%Y-%m-%d"):
+    for fmt in ("%Y%m%d", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S"):
         try:
             return datetime.strptime(raw, fmt).date()
         except ValueError:

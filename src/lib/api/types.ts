@@ -442,7 +442,7 @@ export interface StockDailySnapshot {
   updated_at: string;
 }
 
-export type MarketSnapshotStatus = "available" | "stale" | "partial" | "unavailable";
+export type MarketSnapshotStatus = "available" | "stale" | "source_lag" | "partial" | "unavailable";
 
 export interface StockMarketSnapshot {
   stock: StockRead;
@@ -452,6 +452,8 @@ export interface StockMarketSnapshot {
   source_code: string | null;
   authorization_status: string | null;
   production_enabled: boolean;
+  data_completeness: string | null;
+  missing_fields: string[];
   message: string;
   unit_notes: Record<string, string>;
 }
@@ -461,6 +463,8 @@ export interface WatchlistMarketSnapshot {
   stock: StockRead;
   snapshot: StockDailySnapshot | null;
   status: MarketSnapshotStatus;
+  data_completeness: string | null;
+  missing_fields: string[];
   message: string;
 }
 
@@ -545,6 +549,13 @@ export interface ResearchTaskStatusPayload {
 export interface TodayOverviewStats {
   business_date: string;
   watchlist_count: number;
+  market_trade_date: string | null;
+  market_snapshot_count: number;
+  market_data_available_count: number;
+  market_data_unavailable_count: number;
+  gainers_count: number;
+  decliners_count: number;
+  unchanged_count: number;
   stocks_with_new_information: number;
   new_announcement_candidate_count: number;
   pending_announcement_candidate_count: number;
@@ -567,6 +578,13 @@ export interface PriorityStock {
   open_task_count: number;
   due_observation_count: number;
   review_status: string | null;
+  close: DecimalValue | null;
+  pct_change: DecimalValue | null;
+  amount: DecimalValue | null;
+  turnover_rate: DecimalValue | null;
+  trade_date: string | null;
+  source_code: string | null;
+  freshness_status: MarketSnapshotStatus | null;
   latest_market_snapshot: WatchlistMarketSnapshot | null;
 }
 
@@ -613,6 +631,15 @@ export interface WatchlistScannerRow {
   tags: UserTagRead[];
   focus_reason: string | null;
   latest_market_snapshot: WatchlistMarketSnapshot | null;
+  trade_date: string | null;
+  close: DecimalValue | null;
+  change: DecimalValue | null;
+  pct_change: DecimalValue | null;
+  volume: DecimalValue | null;
+  amount: DecimalValue | null;
+  turnover_rate: DecimalValue | null;
+  source_code: string | null;
+  freshness_status: MarketSnapshotStatus | null;
   new_information_count: number;
   official_announcement_count_7d: number;
   pending_candidate_count: number;
