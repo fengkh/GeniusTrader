@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
@@ -5,6 +6,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select
 
+import app.providers.announcements.cninfo as cninfo_module
 import app.providers.announcements.document_extraction as document_extraction
 import app.providers.base as provider_base
 import app.services.announcement_ingestion as announcement_service
@@ -25,6 +27,7 @@ from app.models.information import (
     InformationItem,
     InformationStockRelation,
 )
+from app.models.research import ResearchTask
 from app.models.review_notification import (
     BusinessEvent,
     DailyReview,
@@ -32,7 +35,9 @@ from app.models.review_notification import (
     Notification,
 )
 from app.models.stock import Stock
+from app.providers.announcements.base import AnnouncementQuery
 from app.providers.announcements.classification import classify_announcement
+from app.providers.announcements.cninfo import CninfoAnnouncementProvider
 from app.providers.announcements.document_extraction import ExtractedAnnouncementDocument
 from app.providers.announcements.models import (
     NormalizedAnnouncement,
@@ -270,6 +275,136 @@ async def test_raw_announcement_normalization_reports_missing_provider_id_withou
     assert normalized.stock_symbols == ["600519.SH"]
 
 
+def _cninfo_row(**overrides):
+    row = {
+        "announcementId": "cninfo-1",
+        "announcementTitle": "贵州茅台关于年度报告的公告",
+        "announcementTime": "2026-07-30 18:00:00",
+        "adjunctUrl": "finalpage/2026-07-30/fake.PDF",
+        "secCode": "600519",
+        "secName": "贵州茅台",
+        "orgId": "gssh0600519",
+    }
+    row.update(overrides)
+    return row
+
+
+async def _cninfo_result(monkeypatch, payload, *, content_type: str = "application/json;charset=UTF-8"):
+    async def fake_request(*args, **kwargs):
+        del args, kwargs
+        text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
+        return ProviderHttpResult(
+            url="http://www.cninfo.com.cn/new/hisAnnouncement/query",
+            status_code=200,
+            elapsed_ms=12,
+            content_type=content_type,
+            response_bytes=len(text.encode("utf-8")),
+            text=text,
+            content=text.encode("utf-8"),
+        )
+
+    monkeypatch.setattr(cninfo_module, "provider_http_request", fake_request)
+    provider = CninfoAnnouncementProvider(get_settings())
+    return await provider.list_announcements(
+        AnnouncementQuery(
+            date_from=date(2026, 7, 24),
+            date_to=date(2026, 7, 31),
+            symbols=["600519.SH"],
+            cursor=None,
+            max_records=3,
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_path"),
+    [
+        ({"announcements": [_cninfo_row()], "totalRecordNum": 1}, "announcements"),
+        ({"data": {"announcements": [_cninfo_row()], "totalRecordNum": 1}}, "data.announcements"),
+        ({"result": {"announcementList": [_cninfo_row()], "totalCount": 1}}, "result.announcementList"),
+    ],
+)
+async def test_cninfo_provider_accepts_old_and_confirmed_wrapped_response_structures(monkeypatch, payload, expected_path):
+    result = await _cninfo_result(monkeypatch, payload)
+
+    assert result.status == ProviderStatus.PASS
+    assert len(result.records) == 1
+    record = result.records[0]
+    assert record.source_code == "CNINFO"
+    assert record.provider_announcement_id == "cninfo-1"
+    assert record.title == "贵州茅台关于年度报告的公告"
+    assert record.published_at is not None
+    assert record.stock_symbols == ["600519.SH"]
+    assert record.company_name == "贵州茅台"
+    assert record.document_url == "http://static.cninfo.com.cn/finalpage/2026-07-30/fake.PDF"
+    assert record.data_completeness == "complete"
+    assert result.metrics["announcement_list_path"] == expected_path
+    assert result.metrics["total_record_count"] == 1
+    assert "raw_response" not in result.metrics
+    assert "payload" not in result.metrics
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"announcements": [], "totalRecordNum": 0, "totalAnnouncement": 0, "totalpages": 0},
+        {"announcements": None, "totalRecordNum": 0, "totalAnnouncement": 0, "totalpages": 0},
+    ],
+)
+async def test_cninfo_provider_treats_empty_or_null_zero_total_as_no_records(monkeypatch, payload):
+    result = await _cninfo_result(monkeypatch, payload)
+
+    assert result.status == ProviderStatus.DATA_INSUFFICIENT
+    assert result.records == []
+    assert result.errors == []
+    assert result.failure_count == 0
+    assert result.success_count == 1
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"categoryList": [], "totalRecordNum": 1},
+        {"announcements": None, "totalRecordNum": 1},
+    ],
+)
+async def test_cninfo_provider_keeps_real_missing_or_invalid_list_as_source_changed(monkeypatch, payload):
+    result = await _cninfo_result(monkeypatch, payload)
+
+    assert result.status == ProviderStatus.SOURCE_CHANGED
+    assert result.records == []
+    assert result.failure_count == 1
+    assert result.errors[0]["code"] == "ANNOUNCEMENTS_FIELD_MISSING"
+
+
+async def test_cninfo_provider_reports_non_json_and_blocked_pages_with_sanitized_errors(monkeypatch):
+    invalid = await _cninfo_result(monkeypatch, "<html>temporary upstream page</html>", content_type="text/html")
+    assert invalid.status == ProviderStatus.PARSE_ERROR
+    assert invalid.errors[0]["code"] == "upstream_invalid_response"
+    assert "temporary upstream page" not in invalid.errors[0]["summary"]
+    assert "raw_response" not in invalid.metrics
+
+    blocked = await _cninfo_result(monkeypatch, "<html>验证码</html>", content_type="text/html")
+    assert blocked.status == ProviderStatus.ACCESS_DENIED
+    assert blocked.errors[0]["code"] == "upstream_blocked"
+    assert "验证码" not in blocked.errors[0]["summary"]
+    assert "raw_response" not in blocked.metrics
+
+
+async def test_cninfo_provider_preserves_metadata_only_when_pdf_is_unavailable(monkeypatch):
+    result = await _cninfo_result(
+        monkeypatch,
+        {"announcements": [_cninfo_row(adjunctUrl=None)], "totalRecordNum": 1},
+    )
+
+    assert result.status == ProviderStatus.PASS
+    record = result.records[0]
+    assert record.document_url is None
+    assert record.attachment_urls == []
+    assert "document_url" in record.missing_fields
+    assert record.data_completeness == "usable"
+
+
 async def test_sync_guards_default_disabled_source_disabled_production_and_legal_hold(client: AsyncClient, db_session, monkeypatch):
     await _login_user(client, db_session)
     payload = {
@@ -411,6 +546,11 @@ async def test_deduplication_and_user_candidate_isolation(client: AsyncClient, d
     assert first_run["created_record_count"] == 1
     assert second_run.json()["data"]["duplicate_record_count"] == 1
     assert (await db_session.execute(select(func.count()).select_from(AnnouncementRecord))).scalar_one() == 1
+    assert (await db_session.execute(select(func.count()).select_from(UserAnnouncementCandidate))).scalar_one() == 1
+    assert (await db_session.execute(select(func.count()).select_from(InformationItem))).scalar_one() == 0
+    assert (await db_session.execute(select(func.count()).select_from(AITask))).scalar_one() == 0
+    assert (await db_session.execute(select(func.count()).select_from(ResearchTask))).scalar_one() == 0
+    assert (await db_session.execute(select(func.count()).select_from(Notification))).scalar_one() == 0
 
     await client.post("/api/v1/auth/logout")
     user_b = await _login_user(client, db_session, prefix="ann_b")
